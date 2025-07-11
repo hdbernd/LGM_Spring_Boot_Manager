@@ -1,14 +1,18 @@
-# Spring Boot Service Manager
+# LGM Spring Boot Service Manager
 
 A comprehensive bash-based tool for managing multiple Spring Boot microservices with an interactive terminal UI. This tool provides unified management for development workflows including git operations, Maven builds, and service lifecycle management.
+
+**🔗 Repository**: https://github.com/hdbernd/LGM_Spring_Boot_Manager
+
+> **Latest Update**: Enhanced with separate terminal sessions for each service, ensuring proper network reachability and improved process management.
 
 ## 🚀 Features
 
 ### Service Operations
-- **Start/Stop/Restart** all services or individual services
-- **Real-time status monitoring** with PID tracking
-- **Background process management** with automatic PID handling
-- **Graceful shutdown** with force-kill fallback
+- **Start/Stop/Restart** all services or individual services in **separate terminal windows**
+- **Real-time status monitoring** with Maven process detection and PID tracking
+- **Proper network reachability** - each service runs in its own terminal session
+- **Graceful shutdown** with Maven process detection and force-kill fallback
 
 ### Build Operations
 - **Git pull** for all repositories or individual services
@@ -122,9 +126,10 @@ For automation or CI/CD, use the standalone scripts:
 
 ## 📊 Service Status Indicators
 
-- 🟢 **Running** - Service is active with valid PID
-- 🔴 **Stopped** - Service is not running
-- 🟡 **Stale PID** - PID file exists but process is dead (auto-cleaned)
+- 🟢 **Running** - Maven process is active and service is reachable
+- 🟡 **Terminal open** - Terminal window exists but Maven may still be starting
+- 🔴 **Stopped** - No service process found
+- ⚠️ **Stale PID** - PID file exists but process is dead (auto-cleaned)
 
 ## 📝 Logging
 
@@ -190,24 +195,28 @@ Each service directory should contain:
 The tool includes comprehensive error handling:
 
 - **Missing directories** - Warnings with skip logic
-- **Non-git repositories** - Graceful skip with notifications
+- **Non-git repositories** - Graceful skip with notifications  
 - **Missing pom.xml** - Build skip with warnings
 - **Build failures** - Error reporting with continuation
 - **Process management** - Stale PID cleanup and force-kill fallback
+- **Terminal compatibility** - Fallback instructions for non-macOS systems
+- **Maven process detection** - Multiple strategies for reliable service tracking
 
 ## 🔄 Process Management
 
 ### Starting Services
-- Services run in **background** using `nohup`
-- **PID files** created in `pids/` directory
-- **Log files** capture all output
-- **Status tracking** for monitoring
+- Services run in **separate Terminal.app windows** (macOS) for proper isolation
+- **Maven process detection** by service name for accurate tracking
+- **PID files** created in `pids/` directory with actual Maven process IDs
+- **Individual terminal sessions** ensure proper network binding and reachability
+- **Startup scripts** generated per service for consistent launching
 
 ### Stopping Services
-- **Graceful shutdown** using `SIGTERM`
-- **10-second timeout** before force kill
-- **Automatic cleanup** of PID and log files
-- **Process verification** to ensure termination
+- **Smart process detection** - finds actual Maven processes by service name
+- **Graceful shutdown** using `SIGTERM` on Maven processes
+- **15-second timeout** before force kill with `SIGKILL`
+- **Automatic cleanup** of PID files and startup scripts
+- **Terminal and process verification** to ensure complete termination
 
 ## 🎨 UI Features
 
@@ -262,10 +271,11 @@ rm -f "$PID_DIR"/*.log
 ## 🐛 Troubleshooting
 
 ### Services Won't Start
-- Check if ports are already in use
-- Verify Maven and Java installation
-- Review service logs in `pids/` directory
-- Ensure `pom.xml` has Spring Boot plugin
+- Check if ports are already in use: `lsof -i :8080` (replace with your port)
+- Verify Maven and Java installation: `mvn --version` and `java --version`
+- Review individual terminal windows for startup errors
+- Ensure `pom.xml` has Spring Boot Maven plugin configured
+- Check that Terminal.app has necessary permissions on macOS
 
 ### Git Pull Failures
 - Verify git credentials and repository access
@@ -284,6 +294,27 @@ chmod +x *.sh
 
 # Fix PID directory permissions
 chmod 755 pids/
+```
+
+## 🔧 Platform Compatibility
+
+- **macOS**: Full support with Terminal.app integration
+- **Linux**: Partial support (manual terminal management)
+- **Windows**: WSL/Git Bash (manual terminal management)
+
+## 📦 Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/hdbernd/LGM_Spring_Boot_Manager.git
+cd LGM_Spring_Boot_Manager
+
+# Make scripts executable
+chmod +x *.sh
+
+# Configure your service paths in folders.txt
+# Start the interactive manager
+./service_manager.sh
 ```
 
 ## 📄 License
