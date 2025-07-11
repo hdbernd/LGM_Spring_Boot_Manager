@@ -50,17 +50,13 @@ A comprehensive bash-based tool for managing multiple Spring Boot microservices 
 
 ```
 LGM_Spring_Boot_Manager/
-├── build_folders.txt.example           # Template for build configuration
-├── runs/                               # Run scenario configurations
-│   ├── all/
-│   │   └── services.txt.example       # All services scenario template
-│   ├── core/
-│   │   └── services.txt.example       # Core services scenario template
-│   └── integration_and_warehouse/
-│       └── services.txt.example       # Integration scenario template
-├── service_manager.sh                  # Interactive terminal UI (main tool)
-├── start_services.sh                   # Batch start script
-├── stop_services.sh                    # Batch stop script
+├── build_folders.txt.example          # Template for build configuration
+├── run_all.txt.example                # All services scenario template
+├── run_core.txt.example               # Core services scenario template
+├── run_integration.txt.example        # Integration scenario template
+├── service_manager.sh                 # Interactive terminal UI (main tool)
+├── start_services.sh                  # Batch start script
+├── stop_services.sh                   # Batch stop script
 ├── pull_and_build.sh                  # Original git pull & build script
 ├── pids/                              # Auto-generated PID and log directory
 │   ├── *.pid                         # Process ID files
@@ -71,7 +67,7 @@ LGM_Spring_Boot_Manager/
 
 # User-created files (not in git):
 ├── build_folders.txt                  # Your build service paths
-└── runs/*/services.txt                # Your run scenario configurations
+└── run_*.txt                          # Your run scenario configurations
 ```
 
 ## 🛠 Setup
@@ -101,18 +97,18 @@ LGM_Spring_Boot_Manager/
    # Edit build_folders.txt with your service paths for git/maven operations
    ```
 
-4. **Configure run scenarios** (create `services.txt` in scenario directories):
+4. **Configure run scenarios** (create run scenario files):
    ```bash
    # For all services scenario
-   cp runs/all/services.txt.example runs/all/services.txt
+   cp run_all.txt.example run_all.txt
    
    # For core services scenario  
-   cp runs/core/services.txt.example runs/core/services.txt
+   cp run_core.txt.example run_core.txt
    
-   # For integration & warehouse scenario
-   cp runs/integration_and_warehouse/services.txt.example runs/integration_and_warehouse/services.txt
+   # For integration scenario
+   cp run_integration.txt.example run_integration.txt
    
-   # Edit each services.txt file with your local service paths
+   # Edit each run_*.txt file with your local service paths
    ```
 
 5. **Start the service manager**:
@@ -217,18 +213,18 @@ pids/stock-service.log
 ~/Documents/LGM_GIT/stock-service
 ```
 
-### Run Scenario Configuration (`runs/*/services.txt`)
+### Run Scenario Configuration (`run_*.txt`)
 
-Each scenario directory contains a `services.txt` file with services to run for that scenario:
+Each scenario file contains service paths for that specific scenario:
 
 ```bash
-# Core scenario example (runs/core/services.txt)
+# Core scenario example (run_core.txt)
 # Essential services only for lightweight development
 
-/Users/username/Documents/LGM_GIT/master-data-service
-/Users/username/Documents/LGM_GIT/configuration-service
-/Users/username/Documents/LGM_GIT/freight-tendering-service
-/Users/username/Documents/LGM_GIT/stock-service
+/path/to/your/core-service-1
+/path/to/your/core-service-2
+/path/to/your/core-service-3
+/path/to/your/core-service-4
 ```
 
 ### Requirements per Service Directory
@@ -240,10 +236,10 @@ Each service directory should contain:
 
 ### Scenario Organization
 
-- **All** (`runs/all/`) - Complete ecosystem for full system testing
-- **Core** (`runs/core/`) - Essential services for basic development
-- **Integration & Warehouse** (`runs/integration_and_warehouse/`) - Warehouse and integration focus
-- **Custom scenarios** - Create additional directories in `runs/` as needed
+- **All** (`run_all.txt`) - Complete ecosystem for full system testing
+- **Core** (`run_core.txt`) - Essential services for basic development
+- **Integration** (`run_integration.txt`) - Integration testing and specialized workflows
+- **Custom scenarios** - Create additional `run_*.txt` files as needed
 
 ## 🚦 Workflow Examples
 
@@ -403,8 +399,8 @@ cp build_folders.txt.example build_folders.txt
 # Edit build_folders.txt with your service paths
 
 # Configure run scenarios (choose one or more)
-cp runs/core/services.txt.example runs/core/services.txt
-# Edit runs/core/services.txt with your service paths
+cp run_core.txt.example run_core.txt
+# Edit run_core.txt with your service paths
 
 # Start the interactive manager
 ./service_manager.sh
@@ -416,33 +412,23 @@ cp runs/core/services.txt.example runs/core/services.txt
 
 The tool includes three pre-configured scenario templates:
 
-### All Services (`runs/all/`)
-Complete LGM microservices ecosystem for full system testing:
-- master-data-service
-- configuration-service  
-- freight-tendering-service
-- stock-service
-- wm-internal-process-service
-- outbound-process-service
-- transport-execution-service
-- integration-service
+### All Services (`run_all.txt`)
+Complete microservices ecosystem for full system testing:
+- Include all your services for comprehensive testing
+- Use when you need the complete system running
+- Best for integration testing and full workflow validation
 
-### Core Services (`runs/core/`)
+### Core Services (`run_core.txt`)
 Essential services for basic development and testing:
-- master-data-service
-- configuration-service
-- freight-tendering-service  
-- stock-service
+- Include only the essential services needed for basic functionality
+- Use for lightweight development when you don't need all services
+- Faster startup and less resource consumption
 
-### Integration & Warehouse (`runs/integration_and_warehouse/`)
-Warehouse operations and external integration testing:
-- master-data-service (dependency)
-- configuration-service (dependency)
-- stock-service
-- wm-internal-process-service
-- outbound-process-service
-- integration-service
-- transport-execution-service
+### Integration Services (`run_integration.txt`)
+Integration testing and specialized workflows:
+- Include services needed for integration testing
+- Focus on services that interact with external systems
+- Use for testing integration points and complex workflows
 
 ## 📄 License
 

@@ -1,20 +1,21 @@
 # Build Configuration - Services for git pull and clean install operations
-# Add your folder paths here, one per line
+# Add your service paths here, one per line
 # These services will be used for build operations (git pull, clean install)
 
-# Example configuration for LGM services:
-# /Users/username/Documents/LGM_GIT/master-data-service
-# /Users/username/Documents/LGM_GIT/configuration-service
-# /Users/username/Documents/LGM_GIT/freight-tendering-service
-# /Users/username/Documents/LGM_GIT/stock-service
-# /Users/username/Documents/LGM_GIT/wm-internal-process-service
-# /Users/username/Documents/LGM_GIT/outbound-process-service
-# /Users/username/Documents/LGM_GIT/transport-execution-service
-# /Users/username/Documents/LGM_GIT/integration-service
+# Example paths (uncomment and modify):
+# /path/to/your/service-1
+# /path/to/your/service-2
+# /path/to/your/service-3
+# /path/to/your/service-4
+# /path/to/your/service-5
+# /path/to/your/service-6
+# /path/to/your/service-7
+# /path/to/your/service-8
 
 # Instructions:
 # 1. Copy this file to build_folders.txt
 # 2. Uncomment and modify the paths to match your local setup
-# 3. Each line should contain an absolute path to a Spring Boot service directory
+# 3. Add absolute paths to Spring Boot service directories
 # 4. Lines starting with # are treated as comments
 # 5. These services will be used for git pull and Maven clean install operations
+# 6. Include all services that need to be built, regardless of run scenarios

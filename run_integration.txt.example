@@ -1,0 +1,20 @@
+# Integration Services - Services for integration and specialized workflows
+# This scenario focuses on integration testing and specialized functionality
+
+# Add your integration service paths here, one per line
+# Example paths (uncomment and modify):
+
+# /path/to/your/core-dependency-1
+# /path/to/your/core-dependency-2
+# /path/to/your/integration-service-1
+# /path/to/your/integration-service-2
+# /path/to/your/integration-service-3
+# /path/to/your/workflow-service-1
+# /path/to/your/workflow-service-2
+
+# Instructions:
+# 1. Copy this file to run_integration.txt
+# 2. Uncomment and modify paths to match your local setup
+# 3. Add absolute paths to Spring Boot service directories
+# 4. Include services needed for integration testing and specialized workflows
+# 5. Use this for testing integration points and complex workflows

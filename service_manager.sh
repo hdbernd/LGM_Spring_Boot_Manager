@@ -6,8 +6,12 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-FOLDERS_FILE="$SCRIPT_DIR/folders.txt"
+BUILD_FOLDERS_FILE="$SCRIPT_DIR/build_folders.txt"
 PID_DIR="$SCRIPT_DIR/pids"
+
+# Current run scenario (set by user selection)
+CURRENT_RUN_SCENARIO=""
+CURRENT_RUN_FILE=""
 
 # Colors for better UI
 RED='\033[0;31m'
@@ -61,9 +65,88 @@ get_service_status() {
     fi
 }
 
-# Function to show service status
+# Function to get available run scenarios
+get_run_scenarios() {
+    find "$SCRIPT_DIR" -name "run_*.txt" -type f | sort
+}
+
+# Function to select run scenario
+select_run_scenario() {
+    local scenarios=($(get_run_scenarios))
+    
+    if [[ ${#scenarios[@]} -eq 0 ]]; then
+        echo -e "${RED}❌ No run scenario files found${NC}"
+        echo -e "${YELLOW}Please create run_*.txt files with service paths${NC}"
+        return 1
+    fi
+    
+    while true; do
+        show_header
+        echo -e "${WHITE}🎯 Select Run Scenario:${NC}"
+        echo ""
+        
+        local i=1
+        for scenario_file in "${scenarios[@]}"; do
+            local scenario_name=$(basename "$scenario_file" .txt)
+            local display_name=${scenario_name#run_}  # Remove 'run_' prefix
+            
+            if [[ -f "$scenario_file" ]]; then
+                local service_count=$(grep -v "^[[:space:]]*#" "$scenario_file" | grep -v "^[[:space:]]*$" | wc -l | xargs)
+                echo "  $i) ${display_name} ($service_count services)"
+            else
+                echo "  $i) ${display_name} (file not found)"
+            fi
+            ((i++))
+        done
+        
+        echo ""
+        echo "  0) Back to main menu"
+        echo ""
+        echo -n "Choose a scenario [0-$((i-1))]: "
+        read -r choice
+        
+        if [[ "$choice" == "0" ]]; then
+            return 1
+        elif [[ "$choice" =~ ^[0-9]+$ ]] && [[ $choice -ge 1 ]] && [[ $choice -lt $i ]]; then
+            local selected_file="${scenarios[$((choice-1))]}"
+            local scenario_name=$(basename "$selected_file" .txt)
+            local display_name=${scenario_name#run_}
+            
+            if [[ ! -f "$selected_file" ]]; then
+                echo ""
+                echo -e "${RED}❌ Scenario file not found: $selected_file${NC}"
+                echo -n "Press Enter to continue..."
+                read -r
+                continue
+            fi
+            
+            CURRENT_RUN_SCENARIO="$display_name"
+            CURRENT_RUN_FILE="$selected_file"
+            echo ""
+            echo -e "${GREEN}✅ Selected scenario: $display_name${NC}"
+            echo -n "Press Enter to continue..."
+            read -r
+            return 0
+        else
+            echo ""
+            echo -e "${RED}Invalid option. Please try again.${NC}"
+            sleep 1
+        fi
+    done
+}
+
+# Function to show service status for current scenario
 show_status() {
-    echo -e "${WHITE}📊 Service Status:${NC}"
+    if [[ -z "$CURRENT_RUN_SCENARIO" ]]; then
+        echo -e "${WHITE}📊 Service Status:${NC}"
+        echo ""
+        echo -e "${YELLOW}⚠️  No run scenario selected${NC}"
+        echo -e "${CYAN}Use 'Select Run Scenario' to choose services to manage${NC}"
+        echo ""
+        return
+    fi
+    
+    echo -e "${WHITE}📊 Service Status - Scenario: ${CYAN}$CURRENT_RUN_SCENARIO${NC}"
     echo ""
     
     local running_count=0
@@ -81,10 +164,10 @@ show_status() {
             fi
             ((total_count++))
         fi
-    done < "$FOLDERS_FILE"
+    done < "$CURRENT_RUN_FILE"
     
     echo ""
-    echo -e "${CYAN}Summary: ${running_count}/${total_count} services running${NC}"
+    echo -e "${CYAN}Summary: ${running_count}/${total_count} services running in $CURRENT_RUN_SCENARIO scenario${NC}"
     echo ""
 }
 
@@ -218,37 +301,73 @@ stop_service() {
 
 # Function to start all services
 start_all_services() {
-    echo -e "${WHITE}🚀 Starting all services...${NC}"
+    if [[ -z "$CURRENT_RUN_FILE" ]]; then
+        echo -e "${RED}❌ No run scenario selected${NC}"
+        echo -e "${YELLOW}Please select a run scenario first${NC}"
+        return 1
+    fi
+    
+    echo -e "${WHITE}🚀 Starting all services in scenario: ${CYAN}$CURRENT_RUN_SCENARIO${NC}"
     echo ""
     
     while IFS= read -r folder || [[ -n "$folder" ]]; do
         if [[ -n "$folder" && ! "$folder" =~ ^[[:space:]]*# ]]; then
             start_service "$folder"
         fi
-    done < "$FOLDERS_FILE"
+    done < "$CURRENT_RUN_FILE"
     
     echo ""
-    echo -e "${GREEN}🎉 All services started!${NC}"
+    echo -e "${GREEN}🎉 All services in $CURRENT_RUN_SCENARIO scenario started!${NC}"
 }
 
 # Function to stop all services
 stop_all_services() {
-    echo -e "${WHITE}🛑 Stopping all services...${NC}"
+    echo -e "${WHITE}🛑 Stopping all running services...${NC}"
     echo ""
     
     for pid_file in "$PID_DIR"/*.pid; do
         if [[ -f "$pid_file" ]]; then
             local service_name=$(basename "$pid_file" .pid)
             
-            # Find folder for this service
-            while IFS= read -r folder || [[ -n "$folder" ]]; do
-                if [[ -n "$folder" && ! "$folder" =~ ^[[:space:]]*# ]]; then
-                    if [[ "$(basename "$folder")" == "$service_name" ]]; then
-                        stop_service "$folder"
-                        break
+            # Find folder for this service (check current scenario first, then build folders)
+            local service_folder=""
+            
+            # Check current run scenario
+            if [[ -n "$CURRENT_RUN_FILE" ]]; then
+                while IFS= read -r folder || [[ -n "$folder" ]]; do
+                    if [[ -n "$folder" && ! "$folder" =~ ^[[:space:]]*# ]]; then
+                        if [[ "$(basename "$folder")" == "$service_name" ]]; then
+                            service_folder="$folder"
+                            break
+                        fi
                     fi
+                done < "$CURRENT_RUN_FILE"
+            fi
+            
+            # If not found in current scenario, check build folders
+            if [[ -z "$service_folder" && -f "$BUILD_FOLDERS_FILE" ]]; then
+                while IFS= read -r folder || [[ -n "$folder" ]]; do
+                    if [[ -n "$folder" && ! "$folder" =~ ^[[:space:]]*# ]]; then
+                        if [[ "$(basename "$folder")" == "$service_name" ]]; then
+                            service_folder="$folder"
+                            break
+                        fi
+                    fi
+                done < "$BUILD_FOLDERS_FILE"
+            fi
+            
+            if [[ -n "$service_folder" ]]; then
+                stop_service "$service_folder"
+            else
+                echo -e "${YELLOW}⚠️  Could not find folder for $service_name, stopping by PID only${NC}"
+                # Fallback: stop by PID file only
+                local pid=$(cat "$pid_file")
+                if ps -p "$pid" > /dev/null 2>&1; then
+                    kill "$pid" 2>/dev/null
+                    echo -e "${GREEN}✅ Stopped $service_name${NC}"
                 fi
-            done < "$FOLDERS_FILE"
+                rm -f "$pid_file"
+            fi
         fi
     done
     
@@ -312,7 +431,13 @@ clean_install_service() {
 
 # Function to git pull all services
 git_pull_all_services() {
-    echo -e "${WHITE}📥 Git pulling all services...${NC}"
+    if [[ ! -f "$BUILD_FOLDERS_FILE" ]]; then
+        echo -e "${RED}❌ Build configuration file not found: $BUILD_FOLDERS_FILE${NC}"
+        echo -e "${YELLOW}Please create build_folders.txt with service paths for build operations${NC}"
+        return 1
+    fi
+    
+    echo -e "${WHITE}📥 Git pulling all build services...${NC}"
     echo ""
     
     local success_count=0
@@ -326,14 +451,20 @@ git_pull_all_services() {
             fi
             echo ""
         fi
-    done < "$FOLDERS_FILE"
+    done < "$BUILD_FOLDERS_FILE"
     
     echo -e "${CYAN}📊 Git pull summary: ${success_count}/${total_count} services updated successfully${NC}"
 }
 
 # Function to clean install all services
 clean_install_all_services() {
-    echo -e "${WHITE}🔨 Clean installing all services...${NC}"
+    if [[ ! -f "$BUILD_FOLDERS_FILE" ]]; then
+        echo -e "${RED}❌ Build configuration file not found: $BUILD_FOLDERS_FILE${NC}"
+        echo -e "${YELLOW}Please create build_folders.txt with service paths for build operations${NC}"
+        return 1
+    fi
+    
+    echo -e "${WHITE}🔨 Clean installing all build services...${NC}"
     echo ""
     
     local success_count=0
@@ -347,13 +478,19 @@ clean_install_all_services() {
             fi
             echo ""
         fi
-    done < "$FOLDERS_FILE"
+    done < "$BUILD_FOLDERS_FILE"
     
     echo -e "${CYAN}📊 Clean install summary: ${success_count}/${total_count} services built successfully${NC}"
 }
 
 # Function to pull and build all services (like original script)
 pull_and_build_all() {
+    if [[ ! -f "$BUILD_FOLDERS_FILE" ]]; then
+        echo -e "${RED}❌ Build configuration file not found: $BUILD_FOLDERS_FILE${NC}"
+        echo -e "${YELLOW}Please create build_folders.txt with service paths for build operations${NC}"
+        return 1
+    fi
+    
     echo -e "${WHITE}🔄 Pull and build all services...${NC}"
     echo ""
     
@@ -377,7 +514,7 @@ pull_and_build_all() {
             fi
             echo ""
         fi
-    done < "$FOLDERS_FILE"
+    done < "$BUILD_FOLDERS_FILE"
     
     echo -e "${PURPLE}========================================${NC}"
     echo -e "${CYAN}📊 Final summary: ${success_count}/${total_count} services processed successfully${NC}"
@@ -532,9 +669,17 @@ service_menu() {
 
 # Function to show individual services menu
 individual_services_menu() {
+    if [[ -z "$CURRENT_RUN_FILE" ]]; then
+        echo -e "${RED}❌ No run scenario selected${NC}"
+        echo -e "${YELLOW}Please select a run scenario first${NC}"
+        echo -n "Press Enter to continue..."
+        read -r
+        return
+    fi
+    
     while true; do
         show_header
-        echo -e "${WHITE}🔧 Individual Service Management${NC}"
+        echo -e "${WHITE}🔧 Individual Service Management - Scenario: ${CYAN}$CURRENT_RUN_SCENARIO${NC}"
         echo ""
         
         local services=()
@@ -549,7 +694,7 @@ individual_services_menu() {
                 printf "  %d) %-30s %s\n" "$i" "$service_name" "$status"
                 ((i++))
             fi
-        done < "$FOLDERS_FILE"
+        done < "$CURRENT_RUN_FILE"
         
         echo ""
         echo "  0) Back to main menu"
@@ -577,41 +722,47 @@ main_menu() {
         
         echo -e "${WHITE}📋 Main Menu:${NC}"
         echo ""
+        echo -e "${CYAN}🎯 Scenario Management:${NC}"
+        echo "1) Select run scenario"
+        echo ""
         echo -e "${CYAN}🚀 Service Operations:${NC}"
-        echo "1) Start all services"
-        echo "2) Stop all services"
-        echo "3) Restart all services"
-        echo "4) Manage individual services"
+        echo "2) Start all services"
+        echo "3) Stop all services"
+        echo "4) Restart all services"
+        echo "5) Manage individual services"
         echo ""
         echo -e "${CYAN}🔨 Build Operations:${NC}"
-        echo "5) Git pull all services"
-        echo "6) Clean install all services"
-        echo "7) Pull and build all services"
+        echo "6) Git pull all services"
+        echo "7) Clean install all services"
+        echo "8) Pull and build all services"
         echo ""
         echo -e "${CYAN}📊 Monitoring:${NC}"
-        echo "8) View logs"
-        echo "9) Refresh status"
-        echo "10) Exit"
+        echo "9) View logs"
+        echo "10) Refresh status"
+        echo "11) Exit"
         echo ""
-        echo -n "Choose an option [1-10]: "
+        echo -n "Choose an option [1-11]: "
         read -r choice
         
         case $choice in
             1)
+                select_run_scenario
+                ;;
+            2)
                 echo ""
                 start_all_services
                 echo ""
                 echo -n "Press Enter to continue..."
                 read -r
                 ;;
-            2)
+            3)
                 echo ""
                 stop_all_services
                 echo ""
                 echo -n "Press Enter to continue..."
                 read -r
                 ;;
-            3)
+            4)
                 echo ""
                 stop_all_services
                 echo ""
@@ -623,37 +774,37 @@ main_menu() {
                 echo -n "Press Enter to continue..."
                 read -r
                 ;;
-            4)
+            5)
                 individual_services_menu
                 ;;
-            5)
+            6)
                 echo ""
                 git_pull_all_services
                 echo ""
                 echo -n "Press Enter to continue..."
                 read -r
                 ;;
-            6)
+            7)
                 echo ""
                 clean_install_all_services
                 echo ""
                 echo -n "Press Enter to continue..."
                 read -r
                 ;;
-            7)
+            8)
                 echo ""
                 pull_and_build_all
                 echo ""
                 echo -n "Press Enter to continue..."
                 read -r
                 ;;
-            8)
+            9)
                 show_logs
                 ;;
-            9)
+            10)
                 # Just refresh by continuing the loop
                 ;;
-            10)
+            11)
                 echo ""
                 echo -e "${GREEN}👋 Goodbye!${NC}"
                 exit 0
@@ -667,10 +818,10 @@ main_menu() {
     done
 }
 
-# Check if folders.txt exists
-if [[ ! -f "$FOLDERS_FILE" ]]; then
-    echo -e "${RED}❌ Error: folders.txt not found in $SCRIPT_DIR${NC}"
-    exit 1
+# Check if any run scenario files exist
+if [[ $(find "$SCRIPT_DIR" -name "run_*.txt" -type f | wc -l) -eq 0 ]]; then
+    echo -e "${YELLOW}⚠️  No run scenario files found${NC}"
+    echo -e "${CYAN}Please create run_*.txt files from the examples (e.g., run_core.txt, run_all.txt)${NC}"
 fi
 
 # Start the main menu

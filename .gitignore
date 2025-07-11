@@ -4,7 +4,7 @@ folders_core.txt
 build_folders.txt
 
 # Run scenario configurations - user-specific service selections
-runs/*/services.txt
+run_*.txt
 
 # Runtime directories and files
 pids/

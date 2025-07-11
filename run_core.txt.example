@@ -1,0 +1,17 @@
+# Core Services - Essential services for basic system functionality
+# This scenario starts only the core services needed for basic operations
+
+# Add your essential service paths here, one per line
+# Example paths (uncomment and modify):
+
+# /path/to/your/core-service-1
+# /path/to/your/core-service-2
+# /path/to/your/core-service-3
+# /path/to/your/core-service-4
+
+# Instructions:
+# 1. Copy this file to run_core.txt
+# 2. Uncomment and modify paths to match your local setup  
+# 3. Add absolute paths to Spring Boot service directories
+# 4. Include only essential services for lightweight development
+# 5. Use this for basic development when you don't need all services running
