@@ -1,6 +1,10 @@
-# Local configuration files
+# Local configuration files - user-specific service paths
 folders.txt
 folders_core.txt
+build_folders.txt
+
+# Run scenario configurations - user-specific service selections
+runs/*/services.txt
 
 # Runtime directories and files
 pids/
@@ -12,14 +16,26 @@ run_*.sh
 
 # macOS system files
 .DS_Store
+.AppleDouble
+.LSOverride
 
-# IDE files
+# IDE and editor files
 .vscode/
 .idea/
 *.swp
 *.swo
+*~
+.project
+.classpath
+.settings/
 
 # Temporary files
 tmp/
 temp/
 *.tmp
+*.bak
+
+# OS generated files
+Thumbs.db
+ehthumbs.db
+Desktop.ini

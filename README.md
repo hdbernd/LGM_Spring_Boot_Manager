@@ -1,50 +1,77 @@
 # LGM Spring Boot Service Manager
 
-A comprehensive bash-based tool for managing multiple Spring Boot microservices with an interactive terminal UI. This tool provides unified management for development workflows including git operations, Maven builds, and service lifecycle management.
+A comprehensive bash-based tool for managing multiple Spring Boot microservices with an interactive terminal UI. This tool provides unified management for development workflows including git operations, Maven builds, and service lifecycle management with **scenario-based service organization**.
 
 **🔗 Repository**: https://github.com/hdbernd/LGM_Spring_Boot_Manager
 
-> **Latest Update**: Enhanced with separate terminal sessions for each service, ensuring proper network reachability and improved process management.
+> **Latest Update**: Complete build/run separation with organized scenario management. Separate configurations for build operations and flexible run scenarios (all, core, integration_and_warehouse) for different development contexts.
 
 ## 🚀 Features
 
-### Service Operations
-- **Start/Stop/Restart** all services or individual services in **separate terminal windows**
+### 🎯 Scenario-Based Service Management
+- **Organized run scenarios** - Choose from predefined service combinations:
+  - **All** - Complete LGM microservices ecosystem (8 services)
+  - **Core** - Essential services for basic development (4 services)
+  - **Integration & Warehouse** - Warehouse operations and integration testing (7 services)
+- **Flexible scenario selection** - Switch between scenarios as needed
+- **Custom scenarios** - Create your own service combinations
+
+### 🔨 Separated Build & Run Operations
+- **Build configuration** (`build_folders.txt`) - Services for git pull and Maven operations
+- **Run scenarios** (`runs/*/services.txt`) - Service combinations for different contexts
+- **Independent management** - Build all services while running only specific scenarios
+
+### 🚀 Service Operations
+- **Start/Stop/Restart** services in selected scenario with **separate terminal windows**
 - **Real-time status monitoring** with Maven process detection and PID tracking
 - **Proper network reachability** - each service runs in its own terminal session
 - **Graceful shutdown** with Maven process detection and force-kill fallback
 
-### Build Operations
-- **Git pull** for all repositories or individual services
-- **Maven clean install** for all projects or individual services
+### 🔧 Build Operations
+- **Git pull** for all repositories from build configuration
+- **Maven clean install** for all projects from build configuration
 - **Combined pull & build** workflow (equivalent to original `pull_and_build.sh`)
 - **Progress tracking** with success/failure counters
 
-### Monitoring & Logging
-- **Service status dashboard** with visual indicators
+### 📊 Monitoring & Logging
+- **Scenario-aware status dashboard** with visual indicators
 - **Log file management** and viewing
-- **Individual service monitoring**
+- **Individual service monitoring** within selected scenario
 - **Build output tracking**
 
-### Interactive UI
+### 🎨 Interactive UI
 - **Colorful terminal interface** with organized menus
+- **Scenario selection interface** with service counts
 - **Individual service management** with dedicated submenus
-- **Real-time status updates**
+- **Real-time status updates** with scenario context
 - **Error handling** with user-friendly messages
 
 ## 📁 Project Structure
 
 ```
-LGM_Pull_Build/
-├── folders.txt              # Service directory configuration
-├── service_manager.sh       # Interactive terminal UI (main tool)
-├── start_services.sh        # Batch start script
-├── stop_services.sh         # Batch stop script
-├── pull_and_build.sh       # Original git pull & build script
-├── pids/                   # Auto-generated PID and log directory
-│   ├── *.pid              # Process ID files
-│   └── *.log              # Service log files
-└── README.md              # This file
+LGM_Spring_Boot_Manager/
+├── build_folders.txt.example           # Template for build configuration
+├── runs/                               # Run scenario configurations
+│   ├── all/
+│   │   └── services.txt.example       # All services scenario template
+│   ├── core/
+│   │   └── services.txt.example       # Core services scenario template
+│   └── integration_and_warehouse/
+│       └── services.txt.example       # Integration scenario template
+├── service_manager.sh                  # Interactive terminal UI (main tool)
+├── start_services.sh                   # Batch start script
+├── stop_services.sh                    # Batch stop script
+├── pull_and_build.sh                  # Original git pull & build script
+├── pids/                              # Auto-generated PID and log directory
+│   ├── *.pid                         # Process ID files
+│   ├── *.log                         # Service log files
+│   └── run_*.sh                      # Auto-generated startup scripts
+├── .gitignore                         # Git ignore configuration
+└── README.md                          # This file
+
+# User-created files (not in git):
+├── build_folders.txt                  # Your build service paths
+└── runs/*/services.txt                # Your run scenario configurations
 ```
 
 ## 🛠 Setup
@@ -57,19 +84,40 @@ LGM_Pull_Build/
 
 ### Configuration
 
-1. **Clone or download** this repository
-2. **Configure service paths** in `folders.txt`:
+1. **Clone the repository**:
    ```bash
-   # Add your folder paths here, one per line
-   /Users/username/Documents/LGM_GIT/master-data-service
-   /Users/username/Documents/LGM_GIT/configuration-service
-   /Users/username/Documents/LGM_GIT/freight-tendering-service
-   # ... add more services
+   git clone https://github.com/hdbernd/LGM_Spring_Boot_Manager.git
+   cd LGM_Spring_Boot_Manager
    ```
 
-3. **Make scripts executable**:
+2. **Make scripts executable**:
    ```bash
    chmod +x *.sh
+   ```
+
+3. **Configure build services** (create `build_folders.txt`):
+   ```bash
+   cp build_folders.txt.example build_folders.txt
+   # Edit build_folders.txt with your service paths for git/maven operations
+   ```
+
+4. **Configure run scenarios** (create `services.txt` in scenario directories):
+   ```bash
+   # For all services scenario
+   cp runs/all/services.txt.example runs/all/services.txt
+   
+   # For core services scenario  
+   cp runs/core/services.txt.example runs/core/services.txt
+   
+   # For integration & warehouse scenario
+   cp runs/integration_and_warehouse/services.txt.example runs/integration_and_warehouse/services.txt
+   
+   # Edit each services.txt file with your local service paths
+   ```
+
+5. **Start the service manager**:
+   ```bash
+   ./service_manager.sh
    ```
 
 ## 🎮 Usage
@@ -83,21 +131,24 @@ Start the main interactive UI:
 
 **Main Menu Options:**
 
-🚀 **Service Operations:**
-- `1` - Start all services
-- `2` - Stop all services  
-- `3` - Restart all services
-- `4` - Manage individual services
+🎯 **Scenario Management:**
+- `1` - Select run scenario
 
-🔨 **Build Operations:**
-- `5` - Git pull all services
-- `6` - Clean install all services
-- `7` - Pull and build all services
+🚀 **Service Operations:** (operates on selected scenario)
+- `2` - Start all services
+- `3` - Stop all services  
+- `4` - Restart all services
+- `5` - Manage individual services
+
+🔨 **Build Operations:** (operates on build_folders.txt)
+- `6` - Git pull all services
+- `7` - Clean install all services
+- `8` - Pull and build all services
 
 📊 **Monitoring:**
-- `8` - View logs
-- `9` - Refresh status
-- `10` - Exit
+- `9` - View logs
+- `10` - Refresh status
+- `11` - Exit
 
 ### Individual Service Management
 
@@ -149,46 +200,81 @@ pids/stock-service.log
 
 ## 🔧 Configuration Details
 
-### folders.txt Format
+### Build Configuration (`build_folders.txt`)
 
 ```bash
+# Build services - used for git pull and Maven clean install operations
 # Comments start with #
 # Blank lines are ignored
 
 # Absolute paths to Spring Boot service directories
 /Users/username/Documents/LGM_GIT/master-data-service
 /Users/username/Documents/LGM_GIT/configuration-service
+/Users/username/Documents/LGM_GIT/freight-tendering-service
+# ... all services for build operations
 
 # Tilde expansion is supported
-~/Documents/LGM_GIT/freight-tendering-service
+~/Documents/LGM_GIT/stock-service
+```
+
+### Run Scenario Configuration (`runs/*/services.txt`)
+
+Each scenario directory contains a `services.txt` file with services to run for that scenario:
+
+```bash
+# Core scenario example (runs/core/services.txt)
+# Essential services only for lightweight development
+
+/Users/username/Documents/LGM_GIT/master-data-service
+/Users/username/Documents/LGM_GIT/configuration-service
+/Users/username/Documents/LGM_GIT/freight-tendering-service
+/Users/username/Documents/LGM_GIT/stock-service
 ```
 
 ### Requirements per Service Directory
 
 Each service directory should contain:
-- **`.git/`** - For git pull operations
-- **`pom.xml`** - For Maven build operations
+- **`.git/`** - For git pull operations (build config only)
+- **`pom.xml`** - For Maven build operations and running
 - **Spring Boot Maven plugin** configured for `spring-boot:run`
+
+### Scenario Organization
+
+- **All** (`runs/all/`) - Complete ecosystem for full system testing
+- **Core** (`runs/core/`) - Essential services for basic development
+- **Integration & Warehouse** (`runs/integration_and_warehouse/`) - Warehouse and integration focus
+- **Custom scenarios** - Create additional directories in `runs/` as needed
 
 ## 🚦 Workflow Examples
 
-### Development Workflow
-1. **Pull latest changes**: Option `5` (Git pull all)
-2. **Build projects**: Option `6` (Clean install all)
-3. **Start services**: Option `1` (Start all services)
-4. **Monitor logs**: Option `8` (View logs)
+### Complete Development Workflow
+1. **Build all services**: Option `8` (Pull and build all) - Updates and builds all services
+2. **Select scenario**: Option `1` (Select run scenario) - Choose "core" for lightweight development
+3. **Start scenario services**: Option `2` (Start all services) - Starts only core services
+4. **Monitor logs**: Option `9` (View logs)
 
-### Quick Start
-1. **Pull and build**: Option `7` (Pull and build all)
-2. **Start services**: Option `1` (Start all services)
+### Quick Scenario Switch
+1. **Select new scenario**: Option `1` - Switch from "core" to "all" 
+2. **Start additional services**: Option `2` - Starts all services in new scenario
+3. **Monitor status**: Option `10` (Refresh status)
 
-### Individual Service Debug
-1. **Individual management**: Option `4`
-2. **Select specific service**
-3. **Stop service**: Option `2`
-4. **Pull and build**: Option `6`
-5. **Start service**: Option `1`
-6. **View logs**: Option `7`
+### Individual Service Management
+1. **Select scenario**: Option `1` - Choose target scenario
+2. **Individual management**: Option `5` - Manage specific services in scenario
+3. **Select specific service**
+4. **Stop/restart/debug individual service**
+5. **View service logs**: Option `7`
+
+### Integration Testing Workflow  
+1. **Select scenario**: Option `1` - Choose "integration_and_warehouse"
+2. **Start scenario**: Option `2` - Starts warehouse and integration services
+3. **Run integration tests** (external)
+4. **Monitor logs**: Option `9` - Check service interactions
+
+### Build vs Run Separation
+- **Build operations** (options 6-8) always use `build_folders.txt` 
+- **Service operations** (options 2-5) use selected run scenario
+- **Example**: Build all 8 services, but run only 4 core services for development
 
 ## 🛡 Error Handling
 
@@ -302,7 +388,7 @@ chmod 755 pids/
 - **Linux**: Partial support (manual terminal management)
 - **Windows**: WSL/Git Bash (manual terminal management)
 
-## 📦 Installation
+## 📦 Quick Installation
 
 ```bash
 # Clone the repository
@@ -312,10 +398,51 @@ cd LGM_Spring_Boot_Manager
 # Make scripts executable
 chmod +x *.sh
 
-# Configure your service paths in folders.txt
+# Configure build services
+cp build_folders.txt.example build_folders.txt
+# Edit build_folders.txt with your service paths
+
+# Configure run scenarios (choose one or more)
+cp runs/core/services.txt.example runs/core/services.txt
+# Edit runs/core/services.txt with your service paths
+
 # Start the interactive manager
 ./service_manager.sh
+
+# Select run scenario and start managing services!
 ```
+
+## 🎯 Scenario Templates
+
+The tool includes three pre-configured scenario templates:
+
+### All Services (`runs/all/`)
+Complete LGM microservices ecosystem for full system testing:
+- master-data-service
+- configuration-service  
+- freight-tendering-service
+- stock-service
+- wm-internal-process-service
+- outbound-process-service
+- transport-execution-service
+- integration-service
+
+### Core Services (`runs/core/`)
+Essential services for basic development and testing:
+- master-data-service
+- configuration-service
+- freight-tendering-service  
+- stock-service
+
+### Integration & Warehouse (`runs/integration_and_warehouse/`)
+Warehouse operations and external integration testing:
+- master-data-service (dependency)
+- configuration-service (dependency)
+- stock-service
+- wm-internal-process-service
+- outbound-process-service
+- integration-service
+- transport-execution-service
 
 ## 📄 License
 
