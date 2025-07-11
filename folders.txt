@@ -1,9 +1,0 @@
-# Add your folder paths here, one per line
-/Users/D034227/Documents/LGM_GIT/master-data-service
-/Users/D034227/Documents/LGM_GIT/configuration-service
-/Users/D034227/Documents/LGM_GIT/freight-tendering-service
-/Users/D034227/Documents/LGM_GIT/stock-service
-/Users/D034227/Documents/LGM_GIT/wm-internal-process-service
-/Users/D034227/Documents/LGM_GIT/outbound-process-service
-/Users/D034227/Documents/LGM_GIT/transport-execution-service
-/Users/D034227/Documents/LGM_GIT/integration-service

@@ -1,0 +1,25 @@
+# Local configuration files
+folders.txt
+folders_core.txt
+
+# Runtime directories and files
+pids/
+*.pid
+*.log
+
+# Service startup scripts (auto-generated)
+run_*.sh
+
+# macOS system files
+.DS_Store
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporary files
+tmp/
+temp/
+*.tmp

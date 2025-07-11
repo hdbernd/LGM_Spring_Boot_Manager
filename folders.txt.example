@@ -1,0 +1,17 @@
+# Add your folder paths here, one per line
+# Example configuration for LGM services:
+
+# /Users/username/Documents/LGM_GIT/master-data-service
+# /Users/username/Documents/LGM_GIT/configuration-service
+# /Users/username/Documents/LGM_GIT/freight-tendering-service
+# /Users/username/Documents/LGM_GIT/stock-service
+# /Users/username/Documents/LGM_GIT/wm-internal-process-service
+# /Users/username/Documents/LGM_GIT/outbound-process-service
+# /Users/username/Documents/LGM_GIT/transport-execution-service
+# /Users/username/Documents/LGM_GIT/integration-service
+
+# Instructions:
+# 1. Copy this file to folders.txt
+# 2. Uncomment and modify the paths to match your local setup
+# 3. Each line should contain an absolute path to a Spring Boot service directory
+# 4. Lines starting with # are treated as comments
