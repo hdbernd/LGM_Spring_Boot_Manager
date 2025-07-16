@@ -46,20 +46,8 @@ start_service() {
 
 # Service configuration
 SERVICE_NAME="$service_name"
-SERVICE_DIR="$folder"
 LOG_FILE="$PID_DIR/$service_name.log"
 STATS_FILE="$PID_DIR/startup_stats.log"
-
-# Validate and change to service directory
-if [[ ! -d "\$SERVICE_DIR" ]]; then
-    echo "❌ Error: Service directory not found: \$SERVICE_DIR"
-    exit 1
-fi
-
-if ! cd "\$SERVICE_DIR"; then
-    echo "❌ Error: Cannot change to service directory: \$SERVICE_DIR"
-    exit 1
-fi
 
 echo "✅ Working directory: \$(pwd)"
 echo "Starting \$SERVICE_NAME..."
@@ -67,9 +55,10 @@ echo "Service will run in this terminal window."
 echo "Close this window or press Ctrl+C to stop the service."
 echo "----------------------------------------"
 
-# Validate pom.xml exists
+# Validate pom.xml exists in current directory
 if [[ ! -f "pom.xml" ]]; then
     echo "❌ Error: pom.xml not found in \$(pwd)"
+    echo "❌ Make sure you're in the correct service directory"
     exit 1
 fi
 
@@ -121,8 +110,8 @@ EOF
     
     # Start in new terminal
     if command -v osascript >/dev/null 2>&1; then
-        # macOS - use Terminal.app
-        osascript -e "tell application \"Terminal\" to do script \"$run_script; echo 'Service stopped. You can close this window.'; read -p 'Press Enter to close...'\"" >/dev/null 2>&1 &
+        # macOS - use Terminal.app, starting in the service directory
+        osascript -e "tell application \"Terminal\" to do script \"cd '$folder' && $run_script; echo 'Service stopped. You can close this window.'; read -p 'Press Enter to close...'\"" >/dev/null 2>&1 &
         local terminal_pid=$!
         
         # Wait a moment and try to find the mvn process
