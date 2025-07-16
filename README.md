@@ -35,9 +35,11 @@ A comprehensive bash-based tool for managing multiple Spring Boot microservices 
 
 ### 📊 Monitoring & Logging
 - **Scenario-aware status dashboard** with visual indicators
+- **Startup time tracking** with automatic timing statistics
 - **Log file management** and viewing
 - **Individual service monitoring** within selected scenario
 - **Build output tracking**
+- **Startup statistics dashboard** with averages and history
 
 ### 🎨 Interactive UI
 - **Colorful terminal interface** with organized menus
@@ -61,6 +63,7 @@ LGM_Spring_Boot_Manager/
 ├── pids/                              # Auto-generated PID and log directory
 │   ├── *.pid                         # Process ID files
 │   ├── *.log                         # Service log files
+│   ├── startup_stats.log             # Startup time statistics
 │   └── run_*.sh                      # Auto-generated startup scripts
 ├── .gitignore                         # Git ignore configuration
 └── README.md                          # This file
@@ -143,8 +146,9 @@ Start the main interactive UI:
 
 📊 **Monitoring:**
 - `9` - View logs
-- `10` - Refresh status
-- `11` - Exit
+- `10` - View startup statistics
+- `11` - Refresh status
+- `12` - Exit
 
 ### Individual Service Management
 
@@ -178,20 +182,41 @@ For automation or CI/CD, use the standalone scripts:
 - 🔴 **Stopped** - No service process found
 - ⚠️ **Stale PID** - PID file exists but process is dead (auto-cleaned)
 
-## 📝 Logging
+## 📝 Logging & Statistics
 
-All service logs are automatically managed:
+All service logs and startup statistics are automatically managed:
 
+### Service Logs
 - **Location**: `pids/` directory
 - **Format**: `{service-name}.log`
-- **Content**: Complete Spring Boot startup and runtime logs
-- **Viewing**: Use option `8` in the UI or check files directly
+- **Content**: Complete Spring Boot startup and runtime logs with timing information
+- **Viewing**: Use option `9` in the UI or check files directly
 
-Example log files:
+### Startup Statistics
+- **Automatic timing**: Each service startup is measured and logged
+- **Statistics file**: `pids/startup_stats.log` with timestamped startup times
+- **Dashboard**: Option `10` shows recent startup times and averages
+- **Visual feedback**: Clear startup completion messages with timing in terminal
+
+Example files:
 ```
-pids/master-data-service.log
-pids/configuration-service.log
-pids/stock-service.log
+pids/master-data-service.log      # Service logs with startup timing
+pids/configuration-service.log    # Service logs with startup timing
+pids/startup_stats.log           # Aggregated startup statistics
+```
+
+Example startup statistics display:
+```
+📊 Startup Statistics:
+
+Recent startup times:
+  2025-07-16 14:23:45: master-data-service started in 12s
+  2025-07-16 14:24:02: configuration-service started in 8s
+  2025-07-16 14:24:15: stock-service started in 15s
+
+📈 Summary:
+  Total service starts: 15
+  Average startup time: 11.3s
 ```
 
 ## 🔧 Configuration Details

@@ -207,6 +207,52 @@ echo "Starting $service_name..."
 echo "Service will run in this terminal window."
 echo "Close this window or press Ctrl+C to stop the service."
 echo "----------------------------------------"
+
+# Track startup time
+START_TIME=\$(date +%s)
+echo "🕐 Startup began at: \$(date)"
+
+# Function to check if Spring Boot has started
+check_spring_boot_started() {
+    local log_file="$PID_DIR/$service_name.log"
+    if [[ -f "\$log_file" ]]; then
+        # Look for Spring Boot startup completion indicators
+        if grep -q "Started.*in.*seconds" "\$log_file" 2>/dev/null; then
+            return 0
+        fi
+        if grep -q "Tomcat started on port" "\$log_file" 2>/dev/null; then
+            return 0
+        fi
+        if grep -q "Application startup completed" "\$log_file" 2>/dev/null; then
+            return 0
+        fi
+    fi
+    return 1
+}
+
+# Start Spring Boot and capture output to log file
+exec > >(tee "$PID_DIR/$service_name.log") 2>&1
+
+# Background process to monitor startup completion
+(
+    while ! check_spring_boot_started; do
+        sleep 1
+    done
+    END_TIME=\$(date +%s)
+    STARTUP_DURATION=\$((END_TIME - START_TIME))
+    echo ""
+    echo "🎉 =================================="
+    echo "🚀 $service_name startup completed!"
+    echo "⏱️  Startup time: \${STARTUP_DURATION} seconds"
+    echo "🕐 Started at: \$(date -r \$START_TIME)"
+    echo "🏁 Completed at: \$(date -r \$END_TIME)"
+    echo "===================================="
+    echo ""
+    
+    # Also write to a startup stats file
+    echo "\$(date -r \$END_TIME): $service_name started in \${STARTUP_DURATION}s" >> "$PID_DIR/startup_stats.log"
+) &
+
 mvn spring-boot:run
 EOF
     chmod +x "$run_script"
@@ -521,6 +567,39 @@ pull_and_build_all() {
     echo -e "${PURPLE}========================================${NC}"
 }
 
+# Function to show startup statistics
+show_startup_stats() {
+    local stats_file="$PID_DIR/startup_stats.log"
+    
+    echo -e "${WHITE}📊 Startup Statistics:${NC}"
+    echo ""
+    
+    if [[ -f "$stats_file" ]]; then
+        echo -e "${CYAN}Recent startup times:${NC}"
+        echo ""
+        tail -20 "$stats_file" | while IFS= read -r line; do
+            echo "  $line"
+        done
+        echo ""
+        
+        # Calculate average startup time if there are stats
+        local avg_time=$(awk -F'started in |s' '{sum += $2; count++} END {if(count > 0) printf "%.1f", sum/count; else print "N/A"}' "$stats_file")
+        local total_starts=$(wc -l < "$stats_file" | xargs)
+        
+        echo -e "${GREEN}📈 Summary:${NC}"
+        echo "  Total service starts: $total_starts"
+        echo "  Average startup time: ${avg_time}s"
+        echo ""
+    else
+        echo -e "${YELLOW}No startup statistics available yet${NC}"
+        echo -e "${CYAN}Start some services to begin collecting startup time data${NC}"
+        echo ""
+    fi
+    
+    echo -n "Press Enter to continue..."
+    read -r
+}
+
 # Function to show logs
 show_logs() {
     echo -e "${WHITE}📋 Available log files:${NC}"
@@ -738,10 +817,11 @@ main_menu() {
         echo ""
         echo -e "${CYAN}📊 Monitoring:${NC}"
         echo "9) View logs"
-        echo "10) Refresh status"
-        echo "11) Exit"
+        echo "10) View startup statistics"
+        echo "11) Refresh status"
+        echo "12) Exit"
         echo ""
-        echo -n "Choose an option [1-11]: "
+        echo -n "Choose an option [1-12]: "
         read -r choice
         
         case $choice in
@@ -802,9 +882,12 @@ main_menu() {
                 show_logs
                 ;;
             10)
-                # Just refresh by continuing the loop
+                show_startup_stats
                 ;;
             11)
+                # Just refresh by continuing the loop
+                ;;
+            12)
                 echo ""
                 echo -e "${GREEN}👋 Goodbye!${NC}"
                 exit 0
