@@ -13,6 +13,9 @@ PID_DIR="$SCRIPT_DIR/pids"
 CURRENT_RUN_SCENARIO=""
 CURRENT_RUN_FILE=""
 
+# Build configuration mode - either "build_folders" or "run_scenario"
+BUILD_CONFIG_MODE="build_folders"
+
 # Colors for better UI
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -68,6 +71,71 @@ get_service_status() {
 # Function to get available run scenarios
 get_run_scenarios() {
     find "$SCRIPT_DIR" -name "run_*.txt" -type f | sort
+}
+
+# Function to select build configuration mode
+select_build_config() {
+    while true; do
+        show_header
+        echo -e "${WHITE}🔨 Select Build Configuration Mode:${NC}"
+        echo ""
+        echo "Build operations (git pull, clean install, pull & build) can use:"
+        echo ""
+        echo "1) Build folders configuration (build_folders.txt)"
+        echo "   - Uses dedicated build configuration file"
+        echo "   - Independent of run scenarios"
+        echo "   - Traditional mode"
+        echo ""
+        echo "2) Current run scenario"
+        if [[ -n "$CURRENT_RUN_SCENARIO" ]]; then
+            echo "   - Uses services from: $CURRENT_RUN_SCENARIO scenario"
+        else
+            echo "   - Uses services from selected run scenario"
+            echo "   - ⚠️  You must select a run scenario first"
+        fi
+        echo ""
+        echo "0) Back to main menu"
+        echo ""
+        echo -e "${CYAN}Current build mode: ${BUILD_CONFIG_MODE}${NC}"
+        echo ""
+        echo -n "Choose build configuration [0-2]: "
+        read -r choice
+        
+        case $choice in
+            0)
+                return
+                ;;
+            1)
+                BUILD_CONFIG_MODE="build_folders"
+                echo ""
+                echo -e "${GREEN}✅ Build configuration set to: build_folders.txt${NC}"
+                echo -n "Press Enter to continue..."
+                read -r
+                return
+                ;;
+            2)
+                if [[ -z "$CURRENT_RUN_FILE" ]]; then
+                    echo ""
+                    echo -e "${RED}❌ No run scenario selected${NC}"
+                    echo -e "${YELLOW}Please select a run scenario first${NC}"
+                    echo -n "Press Enter to continue..."
+                    read -r
+                    continue
+                fi
+                BUILD_CONFIG_MODE="run_scenario"
+                echo ""
+                echo -e "${GREEN}✅ Build configuration set to: $CURRENT_RUN_SCENARIO scenario${NC}"
+                echo -n "Press Enter to continue..."
+                read -r
+                return
+                ;;
+            *)
+                echo ""
+                echo -e "${RED}Invalid option. Please try again.${NC}"
+                sleep 1
+                ;;
+        esac
+    done
 }
 
 # Function to select run scenario
@@ -477,13 +545,28 @@ clean_install_service() {
 
 # Function to git pull all services
 git_pull_all_services() {
-    if [[ ! -f "$BUILD_FOLDERS_FILE" ]]; then
-        echo -e "${RED}❌ Build configuration file not found: $BUILD_FOLDERS_FILE${NC}"
-        echo -e "${YELLOW}Please create build_folders.txt with service paths for build operations${NC}"
-        return 1
+    local config_file=""
+    local config_display=""
+    
+    if [[ "$BUILD_CONFIG_MODE" == "run_scenario" ]]; then
+        if [[ -z "$CURRENT_RUN_FILE" ]]; then
+            echo -e "${RED}❌ No run scenario selected${NC}"
+            echo -e "${YELLOW}Please select a run scenario first or switch to build_folders mode${NC}"
+            return 1
+        fi
+        config_file="$CURRENT_RUN_FILE"
+        config_display="$CURRENT_RUN_SCENARIO scenario"
+    else
+        if [[ ! -f "$BUILD_FOLDERS_FILE" ]]; then
+            echo -e "${RED}❌ Build configuration file not found: $BUILD_FOLDERS_FILE${NC}"
+            echo -e "${YELLOW}Please create build_folders.txt with service paths for build operations${NC}"
+            return 1
+        fi
+        config_file="$BUILD_FOLDERS_FILE"
+        config_display="build_folders.txt"
     fi
     
-    echo -e "${WHITE}📥 Git pulling all build services...${NC}"
+    echo -e "${WHITE}📥 Git pulling all services from: ${CYAN}$config_display${NC}"
     echo ""
     
     local success_count=0
@@ -497,20 +580,35 @@ git_pull_all_services() {
             fi
             echo ""
         fi
-    done < "$BUILD_FOLDERS_FILE"
+    done < "$config_file"
     
     echo -e "${CYAN}📊 Git pull summary: ${success_count}/${total_count} services updated successfully${NC}"
 }
 
 # Function to clean install all services
 clean_install_all_services() {
-    if [[ ! -f "$BUILD_FOLDERS_FILE" ]]; then
-        echo -e "${RED}❌ Build configuration file not found: $BUILD_FOLDERS_FILE${NC}"
-        echo -e "${YELLOW}Please create build_folders.txt with service paths for build operations${NC}"
-        return 1
+    local config_file=""
+    local config_display=""
+    
+    if [[ "$BUILD_CONFIG_MODE" == "run_scenario" ]]; then
+        if [[ -z "$CURRENT_RUN_FILE" ]]; then
+            echo -e "${RED}❌ No run scenario selected${NC}"
+            echo -e "${YELLOW}Please select a run scenario first or switch to build_folders mode${NC}"
+            return 1
+        fi
+        config_file="$CURRENT_RUN_FILE"
+        config_display="$CURRENT_RUN_SCENARIO scenario"
+    else
+        if [[ ! -f "$BUILD_FOLDERS_FILE" ]]; then
+            echo -e "${RED}❌ Build configuration file not found: $BUILD_FOLDERS_FILE${NC}"
+            echo -e "${YELLOW}Please create build_folders.txt with service paths for build operations${NC}"
+            return 1
+        fi
+        config_file="$BUILD_FOLDERS_FILE"
+        config_display="build_folders.txt"
     fi
     
-    echo -e "${WHITE}🔨 Clean installing all build services...${NC}"
+    echo -e "${WHITE}🔨 Clean installing all services from: ${CYAN}$config_display${NC}"
     echo ""
     
     local success_count=0
@@ -524,20 +622,35 @@ clean_install_all_services() {
             fi
             echo ""
         fi
-    done < "$BUILD_FOLDERS_FILE"
+    done < "$config_file"
     
     echo -e "${CYAN}📊 Clean install summary: ${success_count}/${total_count} services built successfully${NC}"
 }
 
 # Function to pull and build all services (like original script)
 pull_and_build_all() {
-    if [[ ! -f "$BUILD_FOLDERS_FILE" ]]; then
-        echo -e "${RED}❌ Build configuration file not found: $BUILD_FOLDERS_FILE${NC}"
-        echo -e "${YELLOW}Please create build_folders.txt with service paths for build operations${NC}"
-        return 1
+    local config_file=""
+    local config_display=""
+    
+    if [[ "$BUILD_CONFIG_MODE" == "run_scenario" ]]; then
+        if [[ -z "$CURRENT_RUN_FILE" ]]; then
+            echo -e "${RED}❌ No run scenario selected${NC}"
+            echo -e "${YELLOW}Please select a run scenario first or switch to build_folders mode${NC}"
+            return 1
+        fi
+        config_file="$CURRENT_RUN_FILE"
+        config_display="$CURRENT_RUN_SCENARIO scenario"
+    else
+        if [[ ! -f "$BUILD_FOLDERS_FILE" ]]; then
+            echo -e "${RED}❌ Build configuration file not found: $BUILD_FOLDERS_FILE${NC}"
+            echo -e "${YELLOW}Please create build_folders.txt with service paths for build operations${NC}"
+            return 1
+        fi
+        config_file="$BUILD_FOLDERS_FILE"
+        config_display="build_folders.txt"
     fi
     
-    echo -e "${WHITE}🔄 Pull and build all services...${NC}"
+    echo -e "${WHITE}🔄 Pull and build all services from: ${CYAN}$config_display${NC}"
     echo ""
     
     local success_count=0
@@ -560,7 +673,7 @@ pull_and_build_all() {
             fi
             echo ""
         fi
-    done < "$BUILD_FOLDERS_FILE"
+    done < "$config_file"
     
     echo -e "${PURPLE}========================================${NC}"
     echo -e "${CYAN}📊 Final summary: ${success_count}/${total_count} services processed successfully${NC}"
@@ -803,25 +916,37 @@ main_menu() {
         echo ""
         echo -e "${CYAN}🎯 Scenario Management:${NC}"
         echo "1) Select run scenario"
+        echo "2) Select build configuration"
         echo ""
         echo -e "${CYAN}🚀 Service Operations:${NC}"
-        echo "2) Start all services"
-        echo "3) Stop all services"
-        echo "4) Restart all services"
-        echo "5) Manage individual services"
+        echo "3) Start all services"
+        echo "4) Stop all services"
+        echo "5) Restart all services"
+        echo "6) Manage individual services"
         echo ""
-        echo -e "${CYAN}🔨 Build Operations:${NC}"
-        echo "6) Git pull all services"
-        echo "7) Clean install all services"
-        echo "8) Pull and build all services"
+        
+        # Show current build configuration
+        local build_display=""
+        if [[ "$BUILD_CONFIG_MODE" == "build_folders" ]]; then
+            build_display="build_folders.txt"
+        elif [[ "$BUILD_CONFIG_MODE" == "run_scenario" && -n "$CURRENT_RUN_SCENARIO" ]]; then
+            build_display="$CURRENT_RUN_SCENARIO scenario"
+        else
+            build_display="run_scenario (none selected)"
+        fi
+        
+        echo -e "${CYAN}🔨 Build Operations:${NC} ${YELLOW}(using: $build_display)${NC}"
+        echo "7) Git pull all services"
+        echo "8) Clean install all services"
+        echo "9) Pull and build all services"
         echo ""
         echo -e "${CYAN}📊 Monitoring:${NC}"
-        echo "9) View logs"
-        echo "10) View startup statistics"
-        echo "11) Refresh status"
-        echo "12) Exit"
+        echo "10) View logs"
+        echo "11) View startup statistics"
+        echo "12) Refresh status"
+        echo "13) Exit"
         echo ""
-        echo -n "Choose an option [1-12]: "
+        echo -n "Choose an option [1-13]: "
         read -r choice
         
         case $choice in
@@ -829,20 +954,23 @@ main_menu() {
                 select_run_scenario
                 ;;
             2)
+                select_build_config
+                ;;
+            3)
                 echo ""
                 start_all_services
                 echo ""
                 echo -n "Press Enter to continue..."
                 read -r
                 ;;
-            3)
+            4)
                 echo ""
                 stop_all_services
                 echo ""
                 echo -n "Press Enter to continue..."
                 read -r
                 ;;
-            4)
+            5)
                 echo ""
                 stop_all_services
                 echo ""
@@ -854,40 +982,40 @@ main_menu() {
                 echo -n "Press Enter to continue..."
                 read -r
                 ;;
-            5)
+            6)
                 individual_services_menu
                 ;;
-            6)
+            7)
                 echo ""
                 git_pull_all_services
                 echo ""
                 echo -n "Press Enter to continue..."
                 read -r
                 ;;
-            7)
+            8)
                 echo ""
                 clean_install_all_services
                 echo ""
                 echo -n "Press Enter to continue..."
                 read -r
                 ;;
-            8)
+            9)
                 echo ""
                 pull_and_build_all
                 echo ""
                 echo -n "Press Enter to continue..."
                 read -r
                 ;;
-            9)
+            10)
                 show_logs
                 ;;
-            10)
+            11)
                 show_startup_stats
                 ;;
-            11)
+            12)
                 # Just refresh by continuing the loop
                 ;;
-            12)
+            13)
                 echo ""
                 echo -e "${GREEN}👋 Goodbye!${NC}"
                 exit 0
