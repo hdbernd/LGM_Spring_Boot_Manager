@@ -135,27 +135,54 @@ Start the main interactive UI:
 🎯 **Scenario Management:**
 - `1` - Select run scenario
 - `2` - Select build configuration
+- `3` - Manage default configuration
 
 🚀 **Service Operations:** (operates on selected scenario)
-- `3` - Start all services
-- `4` - Stop all services  
-- `5` - Restart all services
-- `6` - Manage individual services
+- `4` - Start all services
+- `5` - Stop all services  
+- `6` - Restart all services
+- `7` - Manage individual services
 
 🔨 **Build Operations:** (operates on selected build configuration)
-- `7` - Git pull all services
-- `8` - Clean install all services
-- `9` - Pull and build all services
+- `8` - Git pull all services
+- `9` - Clean install all services
+- `10` - Pull and build all services
 
 📊 **Monitoring:**
-- `10` - View logs
-- `11` - View startup statistics
-- `12` - Refresh status
-- `13` - Exit
+- `11` - View logs
+- `12` - View startup statistics
+- `13` - Refresh status
+- `14` - Exit
+
+### Default Configuration
+
+The service manager supports default configuration to automatically load your preferred settings on startup:
+
+#### Setting Default Configuration
+1. **Select your preferred run scenario** (option 1)
+2. **Select your preferred build configuration** (option 2)  
+3. **Save as default** (option 3 → option 1)
+
+#### Managing Default Configuration
+- **Option 3**: Manage default configuration
+  - **Set current as default**: Save current scenario and build mode as defaults
+  - **Clear defaults**: Remove default configuration file
+  - **View configuration**: Display current default settings
+
+#### Default Configuration File
+- **Location**: `.default_config` (hidden file in project directory)
+- **Format**: Simple key=value pairs
+- **Auto-loaded**: Configuration is automatically applied when starting the service manager
+
+Example `.default_config`:
+```
+DEFAULT_RUN_SCENARIO=core
+DEFAULT_BUILD_MODE=run_scenario
+```
 
 ### Individual Service Management
 
-Select option `6` from the main menu to access individual service controls:
+Select option `7` from the main menu to access individual service controls:
 
 - **Start/Stop/Restart** specific services
 - **Git pull** individual repositories
@@ -274,27 +301,28 @@ Each service directory should contain:
 ### Complete Development Workflow
 1. **Select run scenario**: Option `1` (Select run scenario) - Choose "core" for lightweight development
 2. **Select build configuration**: Option `2` (Select build configuration) - Choose "run scenario" to build only core services
-3. **Build scenario services**: Option `9` (Pull and build all) - Updates and builds only core services
-4. **Start scenario services**: Option `3` (Start all services) - Starts core services
-5. **Monitor logs**: Option `10` (View logs)
+3. **Save as default**: Option `3` (Manage default configuration) - Save current settings as defaults for next startup
+4. **Build scenario services**: Option `10` (Pull and build all) - Updates and builds only core services
+5. **Start scenario services**: Option `4` (Start all services) - Starts core services
+6. **Monitor logs**: Option `11` (View logs)
 
 ### Quick Scenario Switch
 1. **Select new scenario**: Option `1` - Switch from "core" to "all" 
-2. **Start additional services**: Option `3` - Starts all services in new scenario
-3. **Monitor status**: Option `12` (Refresh status)
+2. **Start additional services**: Option `4` - Starts all services in new scenario
+3. **Monitor status**: Option `13` (Refresh status)
 
 ### Individual Service Management
 1. **Select scenario**: Option `1` - Choose target scenario
-2. **Individual management**: Option `6` - Manage specific services in scenario
+2. **Individual management**: Option `7` - Manage specific services in scenario
 3. **Select specific service**
 4. **Stop/restart/debug individual service**
 5. **View service logs**: Option `7`
 
 ### Integration Testing Workflow  
 1. **Select scenario**: Option `1` - Choose "integration_and_warehouse"
-2. **Start scenario**: Option `3` - Starts warehouse and integration services
+2. **Start scenario**: Option `4` - Starts warehouse and integration services
 3. **Run integration tests** (external)
-4. **Monitor logs**: Option `10` - Check service interactions
+4. **Monitor logs**: Option `11` - Check service interactions
 
 ### Build Configuration Modes
 
@@ -326,15 +354,15 @@ The tool now supports two modes for build operations:
 #### Scenario-Based Build Mode
 1. **Select run scenario**: Option `1` - Choose "core" 
 2. **Select build configuration**: Option `2` - Choose "run scenario"
-3. **Build scenario services**: Option `9` - Builds only core services
-4. **Start scenario services**: Option `3` - Starts core services
+3. **Build scenario services**: Option `10` - Builds only core services
+4. **Start scenario services**: Option `4` - Starts core services
 5. **Result**: Complete consistency - build and run the same services
 
 #### Traditional Build Mode
 1. **Select run scenario**: Option `1` - Choose "core"
 2. **Select build configuration**: Option `2` - Choose "build_folders.txt"
-3. **Build all services**: Option `9` - Builds all services in build_folders.txt
-4. **Start scenario services**: Option `3` - Starts only core services
+3. **Build all services**: Option `10` - Builds all services in build_folders.txt
+4. **Start scenario services**: Option `4` - Starts only core services
 5. **Result**: Build all, run subset - traditional workflow
 
 ## 🛡 Error Handling
