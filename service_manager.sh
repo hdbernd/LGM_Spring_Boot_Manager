@@ -276,7 +276,23 @@ SERVICE_NAME="$service_name"
 LOG_FILE="$PID_DIR/$service_name.log"
 STATS_FILE="$PID_DIR/startup_stats.log"
 
+# Source shell profile to ensure environment is loaded
+if [[ -f ~/.zshrc ]]; then
+    source ~/.zshrc
+elif [[ -f ~/.bash_profile ]]; then
+    source ~/.bash_profile
+elif [[ -f ~/.bashrc ]]; then
+    source ~/.bashrc
+fi
+
+# Ensure Java environment is properly set
+export JAVA_HOME="\${JAVA_HOME:-/Library/Java/JavaVirtualMachines/sapmachine-21.jdk/Contents/Home}"
+export PATH="\$JAVA_HOME/bin:\$PATH"
+
 echo "✅ Working directory: \$(pwd)"
+echo "✅ Java version: \$(java -version 2>&1 | head -1)"
+echo "✅ Java compiler: \$(which javac 2>/dev/null || echo 'Not found')"
+echo "✅ JAVA_HOME: \$JAVA_HOME"
 echo "Starting \$SERVICE_NAME..."
 echo "Service will run in this terminal window."
 echo "Close this window or press Ctrl+C to stop the service."
