@@ -120,7 +120,20 @@ check_spring_boot_started() {
 ) &
 
 # Start Spring Boot with output to both console and log file
-mvn spring-boot:run 2>&1 | tee "\$LOG_FILE"
+echo "🔧 Maven configuration:"
+echo "   JAVA_HOME: \$JAVA_HOME"
+echo "   Java executable: \$(which java)"
+echo "   Javac executable: \$(which javac)"
+
+# Force Maven to use the correct Java compiler with multiple approaches
+export MAVEN_OPTS="-Dmaven.compiler.fork=true -Dmaven.compiler.executable=\$JAVA_HOME/bin/javac"
+export JAVA_HOME_FOR_MAVEN="\$JAVA_HOME"
+
+mvn -Djava.home="\$JAVA_HOME" \\
+    -Dmaven.compiler.fork=true \\
+    -Dmaven.compiler.executable="\$JAVA_HOME/bin/javac" \\
+    -Dmaven.compiler.compilerVersion=21 \\
+    spring-boot:run 2>&1 | tee "\$LOG_FILE"
 EOF
     chmod +x "$run_script"
     
