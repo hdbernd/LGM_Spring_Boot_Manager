@@ -285,9 +285,16 @@ elif [[ -f ~/.bashrc ]]; then
     source ~/.bashrc
 fi
 
-# Ensure Java environment is properly set
-export JAVA_HOME="\${JAVA_HOME:-/Library/Java/JavaVirtualMachines/sapmachine-21.jdk/Contents/Home}"
+# Ensure Java environment is properly set - FORCE JDK usage
+export JAVA_HOME="/Library/Java/JavaVirtualMachines/sapmachine-21.jdk/Contents/Home"
 export PATH="\$JAVA_HOME/bin:\$PATH"
+
+# Verify we're using JDK not JRE
+if [[ "\$JAVA_HOME" == *".jre"* ]]; then
+    echo "⚠️  Warning: JAVA_HOME points to JRE, switching to JDK"
+    export JAVA_HOME="/Library/Java/JavaVirtualMachines/sapmachine-21.jdk/Contents/Home"
+    export PATH="\$JAVA_HOME/bin:\$PATH"
+fi
 
 echo "✅ Working directory: \$(pwd)"
 echo "✅ Java version: \$(java -version 2>&1 | head -1)"
@@ -353,12 +360,23 @@ echo "   Java executable: \$(which java)"
 echo "   Javac executable: \$(which javac)"
 
 # Force Maven to use the correct Java compiler with multiple approaches
-export MAVEN_OPTS="-Dmaven.compiler.fork=true -Dmaven.compiler.executable=\$JAVA_HOME/bin/javac"
+JAVAC_PATH="\$JAVA_HOME/bin/javac"
+export MAVEN_OPTS="-Dmaven.compiler.fork=true -Dmaven.compiler.executable=\$JAVAC_PATH"
 export JAVA_HOME_FOR_MAVEN="\$JAVA_HOME"
+
+echo "🔧 Using javac at: \$JAVAC_PATH"
+
+# Verify javac exists before proceeding
+if [[ ! -f "\$JAVAC_PATH" ]]; then
+    echo "❌ Error: javac not found at \$JAVAC_PATH"
+    echo "❌ Available Java installations:"
+    ls -la /Library/Java/JavaVirtualMachines/
+    exit 1
+fi
 
 mvn -Djava.home="\$JAVA_HOME" \\
     -Dmaven.compiler.fork=true \\
-    -Dmaven.compiler.executable="\$JAVA_HOME/bin/javac" \\
+    -Dmaven.compiler.executable="\$JAVAC_PATH" \\
     -Dmaven.compiler.compilerVersion=21 \\
     spring-boot:run 2>&1 | tee "\$LOG_FILE"
 EOF
