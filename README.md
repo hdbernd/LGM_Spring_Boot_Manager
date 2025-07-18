@@ -4,7 +4,7 @@ A comprehensive bash-based tool for managing multiple Spring Boot microservices 
 
 **🔗 Repository**: https://github.com/hdbernd/LGM_Spring_Boot_Manager
 
-> **Latest Update**: Complete build/run separation with organized scenario management. Separate configurations for build operations and flexible run scenarios (all, core, integration_and_warehouse) for different development contexts.
+> **Latest Update**: Added command-line parameter support and enhanced interactive default configuration management. Start with specific profiles directly from command line, set permanent defaults, and manage configurations seamlessly in both interactive and command-line modes.
 
 ## 🚀 Features
 
@@ -49,6 +49,16 @@ A comprehensive bash-based tool for managing multiple Spring Boot microservices 
 - **Individual service management** with dedicated submenus
 - **Real-time status updates** with scenario context
 - **Error handling** with user-friendly messages
+- **Default configuration display** with status visibility
+- **Enhanced default management** with direct profile selection
+
+### 📋 Command-Line Interface
+- **Direct profile startup** - Start with specific profile: `./service_manager.sh core`
+- **Permanent default management** - Set/clear default profiles from command line
+- **Profile listing** - View available profiles: `./service_manager.sh --list-profiles`
+- **Configuration display** - Show current defaults: `./service_manager.sh --show-default`
+- **Help system** - Built-in usage information: `./service_manager.sh --help`
+- **Priority system** - Command-line profile → Permanent default → Interactive selection
 
 ## 📁 Project Structure
 
@@ -123,7 +133,58 @@ LGM_Spring_Boot_Manager/
 
 ## 🎮 Usage
 
-### Interactive Service Manager (Recommended)
+### Command-Line Options
+
+```bash
+Usage: ./service_manager.sh [OPTIONS] [PROFILE]
+
+Options:
+  -h, --help              Show help message
+  -s, --set-default PROFILE  Set PROFILE as permanent default
+  -c, --clear-default     Clear permanent default profile
+  -l, --list-profiles     List available run profiles
+  -d, --show-default      Show current default configuration
+
+Profile:
+  Name of the run profile to use (e.g., core, all, integration)
+  Available profiles are determined by run_*.txt files
+
+Examples:
+  ./service_manager.sh                      # Interactive mode
+  ./service_manager.sh core                 # Start with core profile
+  ./service_manager.sh --set-default core   # Set core as permanent default
+  ./service_manager.sh --list-profiles      # Show available profiles
+```
+
+### Command-Line Usage
+
+The service manager supports both interactive and command-line modes:
+
+```bash
+# Interactive mode (default)
+./service_manager.sh
+
+# Start with specific profile
+./service_manager.sh core
+./service_manager.sh integration_minimum
+
+# Set permanent default profile
+./service_manager.sh --set-default core
+
+# Clear permanent default
+./service_manager.sh --clear-default
+
+# List available profiles
+./service_manager.sh --list-profiles
+
+# Show current default configuration
+./service_manager.sh --show-default
+
+# Show help
+./service_manager.sh --help
+```
+
+### Interactive Service Manager
 
 Start the main interactive UI:
 ```bash
@@ -156,23 +217,35 @@ Start the main interactive UI:
 
 ### Default Configuration
 
-The service manager supports default configuration to automatically load your preferred settings on startup:
+The service manager supports comprehensive default configuration management:
 
-#### Setting Default Configuration
-1. **Select your preferred run scenario** (option 1)
-2. **Select your preferred build configuration** (option 2)  
-3. **Save as default** (option 3 → option 1)
+#### Command-Line Default Management
+```bash
+# Set permanent default profile
+./service_manager.sh --set-default core
 
-#### Managing Default Configuration
-- **Option 3**: Manage default configuration
+# Clear permanent default
+./service_manager.sh --clear-default
+
+# View current defaults
+./service_manager.sh --show-default
+```
+
+#### Interactive Default Management
+- **Main menu display**: Shows current default configuration at the top
+- **Option 3**: Enhanced default configuration management
   - **Set current as default**: Save current scenario and build mode as defaults
+  - **Set specific profile as default**: Choose any profile without selecting it first
   - **Clear defaults**: Remove default configuration file
   - **View configuration**: Display current default settings
+- **Session vs. defaults**: Shows both current session and saved defaults
 
-#### Default Configuration File
+#### Default Configuration Features
+- **Auto-loading**: Defaults are automatically applied when starting
+- **Priority system**: Command-line profile → Permanent default → Interactive selection
+- **Visual feedback**: Clear indicators for default configuration status
 - **Location**: `.default_config` (hidden file in project directory)
 - **Format**: Simple key=value pairs
-- **Auto-loaded**: Configuration is automatically applied when starting the service manager
 
 Example `.default_config`:
 ```

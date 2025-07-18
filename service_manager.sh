@@ -2,6 +2,12 @@
 
 # Spring Boot Service Manager - Interactive Terminal UI
 # Manages Spring Boot services with a simple menu interface
+# Usage: ./service_manager.sh [OPTIONS] [PROFILE]
+# Examples:
+#   ./service_manager.sh                    # Interactive mode
+#   ./service_manager.sh core               # Start with core profile
+#   ./service_manager.sh --set-default core # Set core as permanent default
+#   ./service_manager.sh --help             # Show help
 
 set -e
 
@@ -29,6 +35,138 @@ NC='\033[0m' # No Color
 
 # Create PID directory if it doesn't exist
 mkdir -p "$PID_DIR"
+
+# Function to show usage information
+show_usage() {
+    echo "Spring Boot Service Manager - Interactive Terminal UI"
+    echo ""
+    echo "Usage: $0 [OPTIONS] [PROFILE]"
+    echo ""
+    echo "Options:"
+    echo "  -h, --help              Show this help message"
+    echo "  -s, --set-default PROFILE  Set PROFILE as the permanent default"
+    echo "  -c, --clear-default     Clear the permanent default profile"
+    echo "  -l, --list-profiles     List available run profiles"
+    echo "  -d, --show-default      Show current default configuration"
+    echo ""
+    echo "Profile:"
+    echo "  Name of the run profile to use (e.g., core, all, integration)"
+    echo "  Available profiles are determined by run_*.txt files"
+    echo ""
+    echo "Examples:"
+    echo "  $0                      # Interactive mode"
+    echo "  $0 core                 # Start with core profile"
+    echo "  $0 --set-default core   # Set core as permanent default"
+    echo "  $0 --list-profiles      # Show available profiles"
+    echo ""
+    echo "If no profile is specified, the script will:"
+    echo "  1. Use the profile from --set-default if set"
+    echo "  2. Use the default configuration if available"
+    echo "  3. Start in interactive mode"
+}
+
+# Function to list available profiles
+list_profiles() {
+    echo "Available run profiles:"
+    echo ""
+    local scenarios=($(get_run_scenarios))
+    if [[ ${#scenarios[@]} -eq 0 ]]; then
+        echo "  No run profile files found"
+        echo "  Please create run_*.txt files with service paths"
+    else
+        for scenario_file in "${scenarios[@]}"; do
+            local scenario_name=$(basename "$scenario_file" .txt)
+            local display_name=${scenario_name#run_}  # Remove 'run_' prefix
+            if [[ -f "$scenario_file" ]]; then
+                local service_count=$(grep -v "^[[:space:]]*#" "$scenario_file" | grep -v "^[[:space:]]*$" | wc -l | xargs)
+                echo "  - $display_name ($service_count services)"
+            else
+                echo "  - $display_name (file not found)"
+            fi
+        done
+    fi
+}
+
+# Function to show current default configuration
+show_current_default() {
+    echo "Current default configuration:"
+    echo ""
+    if [[ -f "$DEFAULT_CONFIG_FILE" ]]; then
+        local default_scenario=""
+        local default_build_mode=""
+        
+        while IFS='=' read -r key value; do
+            case $key in
+                DEFAULT_RUN_SCENARIO)
+                    default_scenario="$value"
+                    ;;
+                DEFAULT_BUILD_MODE)
+                    default_build_mode="$value"
+                    ;;
+            esac
+        done < "$DEFAULT_CONFIG_FILE"
+        
+        echo "  📋 Default run profile: ${default_scenario:-None}"
+        echo "  🔨 Default build mode: ${default_build_mode:-None}"
+    else
+        echo "  No default configuration set"
+    fi
+}
+
+# Function to set permanent default profile
+set_permanent_default() {
+    local profile="$1"
+    local scenario_file="$SCRIPT_DIR/run_$profile.txt"
+    
+    if [[ ! -f "$scenario_file" ]]; then
+        echo -e "${RED}❌ Profile '$profile' not found${NC}"
+        echo -e "${YELLOW}Available profiles:${NC}"
+        list_profiles
+        exit 1
+    fi
+    
+    # Determine current build mode or use default
+    local build_mode="build_folders"
+    if [[ -f "$DEFAULT_CONFIG_FILE" ]]; then
+        while IFS='=' read -r key value; do
+            case $key in
+                DEFAULT_BUILD_MODE)
+                    build_mode="$value"
+                    ;;
+            esac
+        done < "$DEFAULT_CONFIG_FILE"
+    fi
+    
+    save_default_config "$profile" "$build_mode"
+    echo -e "${GREEN}✅ '$profile' is now the permanent default profile${NC}"
+}
+
+# Function to clear permanent default
+clear_permanent_default() {
+    if [[ -f "$DEFAULT_CONFIG_FILE" ]]; then
+        rm -f "$DEFAULT_CONFIG_FILE"
+        echo -e "${GREEN}✅ Permanent default configuration cleared${NC}"
+    else
+        echo -e "${YELLOW}No default configuration to clear${NC}"
+    fi
+}
+
+# Function to load profile from command line
+load_profile_from_cmdline() {
+    local profile="$1"
+    local scenario_file="$SCRIPT_DIR/run_$profile.txt"
+    
+    if [[ ! -f "$scenario_file" ]]; then
+        echo -e "${RED}❌ Profile '$profile' not found${NC}"
+        echo -e "${YELLOW}Available profiles:${NC}"
+        list_profiles
+        exit 1
+    fi
+    
+    CURRENT_RUN_SCENARIO="$profile"
+    CURRENT_RUN_FILE="$scenario_file"
+    echo -e "${GREEN}📋 Using profile: $profile${NC}"
+}
 
 # Function to load default configuration
 load_default_config() {
@@ -165,12 +303,17 @@ manage_default_config() {
         fi
         
         echo ""
+        echo -e "${CYAN}Current session:${NC}"
+        echo "  📋 Run scenario: ${CURRENT_RUN_SCENARIO:-None}"
+        echo "  🔨 Build mode: ${BUILD_CONFIG_MODE:-None}"
+        echo ""
         echo "1) Set current configuration as default"
-        echo "2) Clear default configuration"
-        echo "3) View default configuration file"
+        echo "2) Set specific profile as default"
+        echo "3) Clear default configuration"
+        echo "4) View default configuration file"
         echo "0) Back to main menu"
         echo ""
-        echo -n "Choose an option [0-3]: "
+        echo -n "Choose an option [0-4]: "
         read -r choice
         
         case $choice in
@@ -193,6 +336,55 @@ manage_default_config() {
                 read -r
                 ;;
             2)
+                # Set specific profile as default
+                echo ""
+                echo -e "${CYAN}Available profiles:${NC}"
+                local scenarios=($(get_run_scenarios))
+                if [[ ${#scenarios[@]} -eq 0 ]]; then
+                    echo -e "${RED}❌ No run scenario files found${NC}"
+                    echo -n "Press Enter to continue..."
+                    read -r
+                    continue
+                fi
+                
+                local i=1
+                for scenario_file in "${scenarios[@]}"; do
+                    local scenario_name=$(basename "$scenario_file" .txt)
+                    local display_name=${scenario_name#run_}  # Remove 'run_' prefix
+                    if [[ -f "$scenario_file" ]]; then
+                        local service_count=$(grep -v "^[[:space:]]*#" "$scenario_file" | grep -v "^[[:space:]]*$" | wc -l | xargs)
+                        echo "  $i) ${display_name} ($service_count services)"
+                    fi
+                    ((i++))
+                done
+                
+                echo ""
+                echo -n "Choose a profile to set as default [1-$((i-1))] or 0 to cancel: "
+                read -r profile_choice
+                
+                if [[ "$profile_choice" == "0" ]]; then
+                    continue
+                elif [[ "$profile_choice" =~ ^[0-9]+$ ]] && [[ $profile_choice -ge 1 ]] && [[ $profile_choice -lt $i ]]; then
+                    local selected_file="${scenarios[$((profile_choice-1))]}"
+                    local scenario_name=$(basename "$selected_file" .txt)
+                    local display_name=${scenario_name#run_}
+                    
+                    if [[ -f "$selected_file" ]]; then
+                        save_default_config "$display_name" "$BUILD_CONFIG_MODE"
+                        echo ""
+                        echo -e "${GREEN}✅ '$display_name' is now the default profile${NC}"
+                    else
+                        echo ""
+                        echo -e "${RED}❌ Profile file not found${NC}"
+                    fi
+                else
+                    echo ""
+                    echo -e "${RED}Invalid selection${NC}"
+                fi
+                echo -n "Press Enter to continue..."
+                read -r
+                ;;
+            3)
                 if [[ -f "$DEFAULT_CONFIG_FILE" ]]; then
                     rm -f "$DEFAULT_CONFIG_FILE"
                     echo ""
@@ -204,7 +396,7 @@ manage_default_config() {
                 echo -n "Press Enter to continue..."
                 read -r
                 ;;
-            3)
+            4)
                 echo ""
                 if [[ -f "$DEFAULT_CONFIG_FILE" ]]; then
                     echo -e "${CYAN}📄 Default configuration file contents:${NC}"
@@ -1122,6 +1314,29 @@ main_menu() {
         show_header
         show_status
         
+        # Show default configuration status
+        echo -e "${WHITE}⚙️  Default Configuration:${NC}"
+        if [[ -f "$DEFAULT_CONFIG_FILE" ]]; then
+            local default_scenario=""
+            local default_build_mode=""
+            
+            while IFS='=' read -r key value; do
+                case $key in
+                    DEFAULT_RUN_SCENARIO)
+                        default_scenario="$value"
+                        ;;
+                    DEFAULT_BUILD_MODE)
+                        default_build_mode="$value"
+                        ;;
+                esac
+            done < "$DEFAULT_CONFIG_FILE"
+            
+            echo -e "${CYAN}  📋 Default profile: ${default_scenario:-None} | 🔨 Build mode: ${default_build_mode:-None}${NC}"
+        else
+            echo -e "${YELLOW}  No default configuration set${NC}"
+        fi
+        echo ""
+        
         echo -e "${WHITE}📋 Main Menu:${NC}"
         echo ""
         echo -e "${CYAN}🎯 Scenario Management:${NC}"
@@ -1243,14 +1458,68 @@ main_menu() {
     done
 }
 
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -h|--help)
+            show_usage
+            exit 0
+            ;;
+        -s|--set-default)
+            if [[ -n "$2" ]]; then
+                set_permanent_default "$2"
+                exit 0
+            else
+                echo -e "${RED}❌ Error: --set-default requires a profile name${NC}"
+                echo "Use: $0 --set-default PROFILE"
+                exit 1
+            fi
+            ;;
+        -c|--clear-default)
+            clear_permanent_default
+            exit 0
+            ;;
+        -l|--list-profiles)
+            list_profiles
+            exit 0
+            ;;
+        -d|--show-default)
+            show_current_default
+            exit 0
+            ;;
+        -*)
+            echo -e "${RED}❌ Unknown option: $1${NC}"
+            echo "Use: $0 --help for usage information"
+            exit 1
+            ;;
+        *)
+            # This should be a profile name
+            if [[ -z "$PROFILE_FROM_CMDLINE" ]]; then
+                PROFILE_FROM_CMDLINE="$1"
+            else
+                echo -e "${RED}❌ Error: Only one profile can be specified${NC}"
+                echo "Use: $0 --help for usage information"
+                exit 1
+            fi
+            ;;
+    esac
+    shift
+done
+
 # Check if any run scenario files exist
 if [[ $(find "$SCRIPT_DIR" -name "run_*.txt" -type f | wc -l) -eq 0 ]]; then
     echo -e "${YELLOW}⚠️  No run scenario files found${NC}"
     echo -e "${CYAN}Please create run_*.txt files from the examples (e.g., run_core.txt, run_all.txt)${NC}"
+    exit 1
 fi
 
-# Load default configuration if available
-load_default_config
+# Load profile from command line if specified
+if [[ -n "$PROFILE_FROM_CMDLINE" ]]; then
+    load_profile_from_cmdline "$PROFILE_FROM_CMDLINE"
+else
+    # Load default configuration if available
+    load_default_config
+fi
 
 # Start the main menu
 main_menu
