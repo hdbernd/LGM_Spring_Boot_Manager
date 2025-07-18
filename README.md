@@ -88,10 +88,18 @@ LGM_Spring_Boot_Manager/
 ## 🛠 Setup
 
 ### Prerequisites
-- **Bash** (macOS/Linux)
+- **Bash** (macOS/Linux) or **Git Bash** (Windows)
 - **Git** installed and configured
 - **Maven** (`mvn`) available in PATH
 - **Java** environment configured for Spring Boot
+
+#### Windows Users
+For Windows users, you have several options:
+- **Git Bash** (Recommended): Install [Git for Windows](https://gitforwindows.org/) which includes Git Bash
+- **WSL2**: Use Windows Subsystem for Linux with Ubuntu
+- **Docker**: Run services in Linux containers
+
+**Note**: Windows native Command Prompt and PowerShell are not currently supported due to terminal management requirements.
 
 ### Configuration
 
@@ -525,6 +533,13 @@ rm -f "$PID_DIR"/*.log
 - Ensure `pom.xml` has Spring Boot Maven plugin configured
 - Check that Terminal.app has necessary permissions on macOS
 
+### Windows-Specific Issues
+- **Git Bash Path Issues**: Ensure paths use forward slashes (`/`) not backslashes (`\`)
+- **Java/Maven not found**: Add Java and Maven to Windows PATH or use Git Bash profile
+- **Terminal windows**: Services may not open in separate windows - use manual startup
+- **Permission errors**: Run Git Bash as Administrator if needed
+- **Line ending issues**: Ensure scripts have Unix line endings (LF not CRLF)
+
 ### Git Pull Failures
 - Verify git credentials and repository access
 - Check for uncommitted changes requiring stash
@@ -546,9 +561,37 @@ chmod 755 pids/
 
 ## 🔧 Platform Compatibility
 
-- **macOS**: Full support with Terminal.app integration
-- **Linux**: Partial support (manual terminal management)
-- **Windows**: WSL/Git Bash (manual terminal management)
+### **macOS** ✅ **Full Support**
+- Complete Terminal.app integration with separate windows for each service
+- All features work seamlessly including service startup, monitoring, and management
+- Automatic process detection and cleanup
+
+### **Linux** ⚠️ **Partial Support**
+- Falls back to `gnome-terminal` or `xterm` for service terminals
+- Core functionality works but may require manual terminal management
+- Git operations and build processes work normally
+- Service monitoring and process management available
+
+### **Windows** ⚠️ **Limited Support via Git Bash**
+- **Git Bash** provides the best Windows experience
+- All command-line features work (profiles, defaults, build operations)
+- **Service terminal limitation**: Services run in the same Git Bash window
+- Manual service startup recommended: `cd service-directory && mvn spring-boot:run`
+
+#### Windows Setup with Git Bash
+1. **Install Git for Windows**: Download from [gitforwindows.org](https://gitforwindows.org/)
+2. **Open Git Bash**: Right-click in project folder → "Git Bash Here"
+3. **Run the service manager**: `./service_manager.sh`
+4. **Manual service startup**: For services, open separate Git Bash windows:
+   ```bash
+   cd /path/to/service-directory
+   mvn spring-boot:run
+   ```
+
+#### Alternative Windows Options
+- **WSL2**: Full Linux compatibility with Ubuntu/Debian
+- **Docker Desktop**: Run services in Linux containers
+- **PowerShell**: Limited support (command-line features only)
 
 ## 📦 Quick Installation
 
