@@ -1463,6 +1463,7 @@ pull_and_build_all_parallel() {
     echo -e "${BLUE}📥 Phase 1: Git pull operations${NC}"
     local pull_pids=()
     local pull_logs=()
+    local pull_start_time=$(date +%s)
     
     for folder in "${folders[@]}"; do
         local service_name=$(basename "$folder")
@@ -1496,11 +1497,40 @@ pull_and_build_all_parallel() {
         pull_pids+=($!)
     done
     
-    # Wait for all git pull operations to complete
+    # Wait for all git pull operations to complete with progress indication
     echo ""
     echo -e "${CYAN}⏳ Waiting for all git pull operations to complete...${NC}"
     
     local pull_success_count=0
+    local completed_pulls=0
+    
+    # Monitor progress while waiting for completion
+    while [[ $completed_pulls -lt ${#pull_pids[@]} ]]; do
+        local still_running=0
+        
+        for i in "${!pull_pids[@]}"; do
+            local pid=${pull_pids[$i]}
+            local service_name=$(basename "${folders[$i]}")
+            
+            # Check if this process is still running
+            if kill -0 "$pid" 2>/dev/null; then
+                ((still_running++))
+            fi
+        done
+        
+        completed_pulls=$((${#pull_pids[@]} - still_running))
+        
+        # Show progress
+        printf "\r${BLUE}📥 Git pull progress: ${completed_pulls}/${#pull_pids[@]} completed (${still_running} running)${NC}"
+        
+        if [[ $still_running -gt 0 ]]; then
+            sleep 1
+        fi
+    done
+    
+    echo "" # New line after progress indicator
+    
+    # Collect results
     for i in "${!pull_pids[@]}"; do
         local pid=${pull_pids[$i]}
         local service_name=$(basename "${folders[$i]}")
@@ -1529,6 +1559,7 @@ pull_and_build_all_parallel() {
     echo -e "${BLUE}🔨 Phase 2: Maven clean install operations${NC}"
     local build_pids=()
     local build_logs=()
+    local build_start_time=$(date +%s)
     
     for folder in "${folders[@]}"; do
         local service_name=$(basename "$folder")
@@ -1568,11 +1599,41 @@ pull_and_build_all_parallel() {
         build_pids+=($!)
     done
     
-    # Wait for all Maven operations to complete
+    # Wait for all Maven operations to complete with progress indication
     echo ""
     echo -e "${CYAN}⏳ Waiting for all Maven clean install operations to complete...${NC}"
     
     local build_success_count=0
+    local completed_builds=0
+    
+    # Monitor progress while waiting for completion
+    while [[ $completed_builds -lt ${#build_pids[@]} ]]; do
+        local still_running=0
+        
+        for i in "${!build_pids[@]}"; do
+            local pid=${build_pids[$i]}
+            local service_name=$(basename "${folders[$i]}")
+            
+            # Check if this process is still running
+            if kill -0 "$pid" 2>/dev/null; then
+                ((still_running++))
+            fi
+        done
+        
+        completed_builds=$((${#build_pids[@]} - still_running))
+        
+        # Show progress with elapsed time
+        local elapsed=$(($(date +%s) - build_start_time))
+        printf "\r${BLUE}🔨 Maven build progress: ${completed_builds}/${#build_pids[@]} completed (${still_running} running) - ${elapsed}s elapsed${NC}"
+        
+        if [[ $still_running -gt 0 ]]; then
+            sleep 2  # Less frequent updates for Maven builds (they take longer)
+        fi
+    done
+    
+    echo "" # New line after progress indicator
+    
+    # Collect results
     for i in "${!build_pids[@]}"; do
         local pid=${build_pids[$i]}
         local service_name=$(basename "${folders[$i]}")
@@ -1596,9 +1657,14 @@ pull_and_build_all_parallel() {
     echo ""
     echo -e "${PURPLE}========================================${NC}"
     echo -e "${CYAN}📊 Final summary:${NC}"
+    local total_elapsed=$(($(date +%s) - pull_start_time))
     echo -e "${CYAN}  Git pull: ${pull_success_count}/${total_count} services updated successfully${NC}"
     echo -e "${CYAN}  Maven build: ${build_success_count}/${total_count} services built successfully${NC}"
     echo -e "${CYAN}  Overall: $((pull_success_count < build_success_count ? pull_success_count : build_success_count))/${total_count} services fully processed${NC}"
+    echo -e "${GREEN}  ⏱️  Total time: ${total_elapsed}s (parallel execution)${NC}"
+    if [[ $build_success_count -gt 0 ]]; then
+        echo -e "${YELLOW}  🚀 JARs ready for fast startup mode${NC}"
+    fi
     echo -e "${PURPLE}========================================${NC}"
 }
 
