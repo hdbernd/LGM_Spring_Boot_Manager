@@ -657,6 +657,160 @@ show_status() {
     echo ""
 }
 
+# Function to start a single service using JAR (faster startup)
+start_service_jar() {
+    local folder="$1"
+    local service_name=$(basename "$folder")
+    
+    if [[ ! -d "$folder" ]]; then
+        echo -e "${RED}❌ Error: Directory $folder does not exist${NC}"
+        return 1
+    fi
+    
+    # Find the executable JAR
+    local jar_file=$(find "$folder/target" -name "*.jar" -not -name "*sources.jar" -not -name "*javadoc.jar" 2>/dev/null | head -1)
+    if [[ ! -f "$jar_file" ]]; then
+        echo -e "${RED}❌ Error: No executable JAR found in $folder/target${NC}"
+        echo -e "${YELLOW}💡 Tip: Run 'Build JARs for all services' first${NC}"
+        return 1
+    fi
+    
+    # Check if already running
+    local pid_file="$PID_DIR/$service_name.pid"
+    if [[ -f "$pid_file" ]]; then
+        local pid=$(cat "$pid_file")
+        if ps -p "$pid" > /dev/null 2>&1; then
+            echo -e "${YELLOW}⚠️  $service_name is already running (PID: $pid)${NC}"
+            return 0
+        fi
+    fi
+    
+    echo -e "${BLUE}🚀 Starting $service_name from JAR in new terminal (FAST MODE)...${NC}"
+    
+    # Create a script to run in the new terminal
+    local run_script="$PID_DIR/run_$service_name.sh"
+    cat > "$run_script" << EOF
+#!/bin/bash
+
+# Service configuration
+SERVICE_NAME="$service_name"
+LOG_FILE="$PID_DIR/$service_name.log"
+STATS_FILE="$PID_DIR/startup_stats.log"
+JAR_FILE="$jar_file"
+
+echo "✅ JAR file: \$JAR_FILE"
+echo "✅ Working directory: \$(pwd)"
+echo "Starting \$SERVICE_NAME from JAR (Fast Mode)..."
+echo "Service will run in this terminal window."
+echo "Close this window or press Ctrl+C to stop the service."
+echo "----------------------------------------"
+
+# Track startup time
+START_TIME=\$(date +%s)
+echo "🕐 Startup began at: \$(date)"
+
+# Function to check if Spring Boot has started
+check_spring_boot_started() {
+    if [[ -f "\$LOG_FILE" ]]; then
+        # Look for Spring Boot startup completion indicators
+        if grep -q "Started.*in.*seconds" "\$LOG_FILE" 2>/dev/null; then
+            return 0
+        fi
+        if grep -q "Tomcat started on port" "\$LOG_FILE" 2>/dev/null; then
+            return 0
+        fi
+        if grep -q "Application startup completed" "\$LOG_FILE" 2>/dev/null; then
+            return 0
+        fi
+    fi
+    return 1
+}
+
+# Background process to monitor startup completion
+(
+    while ! check_spring_boot_started; do
+        sleep 1
+    done
+    END_TIME=\$(date +%s)
+    STARTUP_DURATION=\$((END_TIME - START_TIME))
+    echo ""
+    echo "🎉 =================================="
+    echo "🚀 \$SERVICE_NAME startup completed!"
+    echo "⏱️  Startup time: \${STARTUP_DURATION} seconds"
+    echo "🕐 Started at: \$(date -r \$START_TIME)"
+    echo "🏁 Completed at: \$(date -r \$END_TIME)"
+    echo "===================================="
+    echo ""
+    
+    # Also write to a startup stats file
+    echo "\$(date -r \$END_TIME): \$SERVICE_NAME (JAR) started in \${STARTUP_DURATION}s" >> "\$STATS_FILE"
+) &
+
+echo "🚀 Performance: JAR execution with optimized JVM settings"
+echo "🔧 JVM flags: G1GC, String deduplication, Fast startup"
+
+# Optimized JVM settings for JAR execution - even faster than Maven
+java -Xms1g -Xmx3g \\
+     -XX:+UseG1GC \\
+     -XX:TieredStopAtLevel=1 \\
+     -XX:+UseStringDeduplication \\
+     -XX:+AlwaysPreTouch \\
+     -noverify \\
+     -XX:+ParallelRefProcEnabled \\
+     -XX:MaxGCPauseMillis=200 \\
+     -Dspring.main.lazy-initialization=true \\
+     -jar "\$JAR_FILE" 2>&1 | tee "\$LOG_FILE"
+EOF
+    chmod +x "$run_script"
+    
+    # Start in new terminal and capture the terminal process PID
+    if command -v osascript >/dev/null 2>&1; then
+        # macOS - use Terminal.app, starting in the service directory
+        osascript -e "tell application \"Terminal\" to do script \"cd '$folder' && $run_script; echo 'Service stopped. You can close this window.'; read -p 'Press Enter to close...'\"" >/dev/null 2>&1 &
+        local terminal_pid=$!
+        
+        # Wait a moment for the service to start
+        sleep 2  # JAR startup is faster, so less wait time needed
+        
+        # Find the Java process using helper function (JAR shows up as java process)
+        local java_pid=""
+        local attempts=0
+        while [[ -z "$java_pid" && $attempts -lt 8 ]]; do
+            java_pid=$(find_service_processes "$folder" | head -1)
+            
+            if [[ -z "$java_pid" ]]; then
+                sleep 1
+                ((attempts++))
+            fi
+        done
+        
+        if [[ -n "$java_pid" ]]; then
+            echo $java_pid > "$pid_file"
+            echo -e "${GREEN}✅ Started $service_name from JAR (PID: $java_pid) - FAST MODE${NC}"
+        else
+            echo -e "${YELLOW}⚠️  $service_name terminal opened, waiting for Java startup...${NC}"
+            # Create a placeholder PID file with terminal PID for tracking
+            echo $terminal_pid > "$pid_file"
+        fi
+    else
+        # Fallback for non-macOS systems - try gnome-terminal or xterm
+        if command -v gnome-terminal >/dev/null 2>&1; then
+            gnome-terminal -- bash "$run_script" &
+        elif command -v xterm >/dev/null 2>&1; then
+            xterm -e "bash $run_script" &
+        else
+            echo -e "${RED}❌ No suitable terminal emulator found${NC}"
+            echo -e "${YELLOW}Run manually: cd $folder && java -jar $jar_file${NC}"
+            return 1
+        fi
+        
+        local terminal_pid=$!
+        sleep 2
+        echo $terminal_pid > "$pid_file"
+        echo -e "${GREEN}✅ Started $service_name from JAR (PID: $terminal_pid) - FAST MODE${NC}"
+    fi
+}
+
 # Function to start a single service
 start_service() {
     local folder="$1"
@@ -779,10 +933,14 @@ echo "   Javac executable: \$(which javac)"
 
 # Force Maven to use the correct Java compiler with multiple approaches
 JAVAC_PATH="\$JAVA_HOME/bin/javac"
-export MAVEN_OPTS="-Dmaven.compiler.fork=true -Dmaven.compiler.executable=\$JAVAC_PATH"
+
+# Performance-optimized Maven and JVM settings
+# Use G1GC for better Spring Boot performance and faster startup
+export MAVEN_OPTS="-Xms1g -Xmx3g -XX:+UseG1GC -XX:+UseStringDeduplication -XX:+AlwaysPreTouch -XX:TieredStopAtLevel=1 -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -Dmaven.compiler.fork=true -Dmaven.compiler.executable=\$JAVAC_PATH"
 export JAVA_HOME_FOR_MAVEN="\$JAVA_HOME"
 
 echo "🔧 Using javac at: \$JAVAC_PATH"
+echo "🚀 Performance optimizations enabled (G1GC, String deduplication, Fast JIT)"
 
 # Verify javac exists before proceeding
 if [[ ! -f "\$JAVAC_PATH" ]]; then
@@ -792,10 +950,14 @@ if [[ ! -f "\$JAVAC_PATH" ]]; then
     exit 1
 fi
 
+# Optimized Maven spring-boot:run with development-focused JVM flags
 mvn -Djava.home="\$JAVA_HOME" \\
     -Dmaven.compiler.fork=true \\
     -Dmaven.compiler.executable="\$JAVAC_PATH" \\
     -Dmaven.compiler.compilerVersion=21 \\
+    -Dmaven.test.skip=true \\
+    -Dspring-boot.run.fork=true \\
+    -Dspring-boot.run.jvmArguments="-Xms1g -Xmx3g -XX:+UseG1GC -XX:TieredStopAtLevel=1 -XX:+UseStringDeduplication -XX:+AlwaysPreTouch -noverify -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200" \\
     spring-boot:run 2>&1 | tee "\$LOG_FILE"
 EOF
     chmod +x "$run_script"
@@ -1167,6 +1329,83 @@ pull_and_build_all() {
     echo -e "${PURPLE}========================================${NC}"
 }
 
+# Function to build JARs for all services (faster startup alternative)
+build_jars_all_services() {
+    local config_file=""
+    local config_display=""
+    
+    if [[ "$BUILD_CONFIG_MODE" == "run_scenario" ]]; then
+        if [[ -z "$CURRENT_RUN_FILE" ]]; then
+            echo -e "${RED}❌ No run scenario selected${NC}"
+            echo -e "${YELLOW}Please select a run scenario first or switch to build_folders mode${NC}"
+            return 1
+        fi
+        config_file="$CURRENT_RUN_FILE"
+        config_display="$CURRENT_RUN_SCENARIO scenario"
+    else
+        if [[ ! -f "$BUILD_FOLDERS_FILE" ]]; then
+            echo -e "${RED}❌ Build configuration file not found: $BUILD_FOLDERS_FILE${NC}"
+            echo -e "${YELLOW}Please create build_folders.txt with service paths for build operations${NC}"
+            return 1
+        fi
+        config_file="$BUILD_FOLDERS_FILE"
+        config_display="build_folders.txt"
+    fi
+    
+    echo -e "${WHITE}🏗️  Building executable JARs for all services from: ${CYAN}$config_display${NC}"
+    echo -e "${YELLOW}💡 This creates optimized JARs for faster service startup${NC}"
+    echo ""
+    
+    local success_count=0
+    local total_count=0
+    
+    while IFS= read -r folder || [[ -n "$folder" ]]; do
+        if [[ -n "$folder" && ! "$folder" =~ ^[[:space:]]*# ]]; then
+            local service_name=$(basename "$folder")
+            echo -e "${PURPLE}========================================${NC}"
+            echo -e "${WHITE}Building JAR: $service_name${NC}"
+            echo -e "${PURPLE}========================================${NC}"
+            
+            ((total_count++))
+            
+            if [[ ! -d "$folder" ]]; then
+                echo -e "${RED}❌ Error: Directory $folder does not exist${NC}"
+                continue
+            fi
+            
+            cd "$folder"
+            
+            if [[ ! -f "pom.xml" ]]; then
+                echo -e "${YELLOW}⚠️  No pom.xml found in $service_name, skipping...${NC}"
+                continue
+            fi
+            
+            echo -e "${BLUE}🔄 Building JAR for $service_name...${NC}"
+            
+            if mvn clean package -DskipTests -Dmaven.compiler.fork=true; then
+                ((success_count++))
+                # Check if JAR was created
+                local jar_file=$(find target -name "*.jar" -not -name "*sources.jar" -not -name "*javadoc.jar" | head -1)
+                if [[ -n "$jar_file" ]]; then
+                    echo -e "${GREEN}✅ JAR created: $jar_file${NC}"
+                else
+                    echo -e "${YELLOW}⚠️  JAR built but not found in expected location${NC}"
+                fi
+            else
+                echo -e "${RED}❌ JAR build failed for $service_name${NC}"
+            fi
+            echo ""
+        fi
+    done < "$config_file"
+    
+    echo -e "${PURPLE}========================================${NC}"
+    echo -e "${CYAN}📊 JAR build summary: ${success_count}/${total_count} services built successfully${NC}"
+    if [[ $success_count -gt 0 ]]; then
+        echo -e "${GREEN}🚀 Services with JARs can now be started faster using JAR mode${NC}"
+    fi
+    echo -e "${PURPLE}========================================${NC}"
+}
+
 # Function to pull and build all services in parallel
 pull_and_build_all_parallel() {
     local config_file=""
@@ -1434,16 +1673,17 @@ service_menu() {
         echo -e "Status: $status"
         echo ""
         
-        echo "1) Start service"
-        echo "2) Stop service"
-        echo "3) Restart service"
-        echo "4) Git pull service"
-        echo "5) Clean install service"
-        echo "6) Pull and build service"
-        echo "7) View logs"
-        echo "8) Back to main menu"
+        echo "1) Start service (Maven)"
+        echo "2) Start service (JAR - faster)"
+        echo "3) Stop service"
+        echo "4) Restart service"
+        echo "5) Git pull service"
+        echo "6) Clean install service"
+        echo "7) Pull and build service"
+        echo "8) View logs"
+        echo "9) Back to main menu"
         echo ""
-        echo -n "Choose an option [1-8]: "
+        echo -n "Choose an option [1-9]: "
         read -r choice
         
         case $choice in
@@ -1456,12 +1696,19 @@ service_menu() {
                 ;;
             2)
                 echo ""
-                stop_service "$folder"
+                start_service_jar "$folder"
                 echo ""
                 echo -n "Press Enter to continue..."
                 read -r
                 ;;
             3)
+                echo ""
+                stop_service "$folder"
+                echo ""
+                echo -n "Press Enter to continue..."
+                read -r
+                ;;
+            4)
                 echo ""
                 stop_service "$folder"
                 sleep 2
@@ -1470,21 +1717,21 @@ service_menu() {
                 echo -n "Press Enter to continue..."
                 read -r
                 ;;
-            4)
+            5)
                 echo ""
                 git_pull_service "$folder"
                 echo ""
                 echo -n "Press Enter to continue..."
                 read -r
                 ;;
-            5)
+            6)
                 echo ""
                 clean_install_service "$folder"
                 echo ""
                 echo -n "Press Enter to continue..."
                 read -r
                 ;;
-            6)
+            7)
                 echo ""
                 echo -e "${WHITE}🔄 Pull and build $service_name...${NC}"
                 echo ""
@@ -1497,7 +1744,7 @@ service_menu() {
                 echo -n "Press Enter to continue..."
                 read -r
                 ;;
-            7)
+            8)
                 local log_file="$PID_DIR/$service_name.log"
                 if [[ -f "$log_file" ]]; then
                     clear
@@ -1514,7 +1761,7 @@ service_menu() {
                     read -r
                 fi
                 ;;
-            8)
+            9)
                 break
                 ;;
             *)
@@ -1631,15 +1878,16 @@ main_menu() {
         echo "9) Clean install all services"
         echo "10) Pull and build all services (sequential)"
         echo "11) Pull and build all services (parallel)"
+        echo "12) Build JARs for all services (faster startup)"
         echo ""
         echo -e "${CYAN}📊 Monitoring:${NC}"
-        echo "12) View logs"
-        echo "13) View startup statistics"
-        echo "14) Refresh status (quick)"
-        echo "15) Thorough status check"
-        echo "16) Exit"
+        echo "13) View logs"
+        echo "14) View startup statistics"
+        echo "15) Refresh status (quick)"
+        echo "16) Thorough status check"
+        echo "17) Exit"
         echo ""
-        echo -n "Choose an option [1-16]: "
+        echo -n "Choose an option [1-17]: "
         read -r choice
         
         case $choice in
@@ -1710,22 +1958,29 @@ main_menu() {
                 read -r
                 ;;
             12)
-                show_logs
+                echo ""
+                build_jars_all_services
+                echo ""
+                echo -n "Press Enter to continue..."
+                read -r
                 ;;
             13)
-                show_startup_stats
+                show_logs
                 ;;
             14)
-                # Just refresh by continuing the loop (quick mode)
+                show_startup_stats
                 ;;
             15)
+                # Just refresh by continuing the loop (quick mode)
+                ;;
+            16)
                 echo ""
                 echo -e "${BLUE}🔍 Performing thorough status check...${NC}"
                 show_status true
                 echo -n "Press Enter to continue..."
                 read -r
                 ;;
-            16)
+            17)
                 echo ""
                 echo -e "${GREEN}👋 Goodbye!${NC}"
                 exit 0
