@@ -274,41 +274,45 @@ find_service_processes() {
     echo "$found_pids"
 }
 
-# Function to get service status
+# Function to get service status with optional thorough checking
 get_service_status() {
     local folder="$1"
+    local thorough_check="${2:-false}"  # Default to quick check
     local service_name=$(basename "$folder")
     local pid_file="$PID_DIR/$service_name.pid"
     
-    # Use helper function to find running processes
-    local mvn_pids=$(find_service_processes "$folder")
-    
-    if [[ -n "$mvn_pids" ]]; then
-        local mvn_pid=$(echo "$mvn_pids" | head -1)
-        # Update PID file with actual Maven/Java PID
-        echo "$mvn_pid" > "$pid_file"
-        echo -e "${GREEN}●${NC} Running (PID: $mvn_pid)"
-        return 0
-    fi
-    
-    # Check PID file as fallback
+    # Quick check: Only check PID file first
     if [[ -f "$pid_file" ]]; then
         local pid=$(cat "$pid_file")
         if ps -p "$pid" > /dev/null 2>&1; then
             # Check if this is still a relevant process (Maven/Java)
-            if ps -p "$pid" -o command= | grep -q -E "(mvn|java).*spring-boot"; then
+            if ps -p "$pid" -o command= 2>/dev/null | grep -q -E "(mvn|java).*(spring-boot|SpringApplication)"; then
                 echo -e "${GREEN}●${NC} Running (PID: $pid)"
                 return 0
             else
                 echo -e "${YELLOW}●${NC} Terminal open (PID: $pid)"
+                return 0
             fi
         else
-            echo -e "${RED}●${NC} Stopped (stale PID)"
+            # PID file exists but process is dead - clean it up
             rm -f "$pid_file"
         fi
-    else
-        echo -e "${RED}●${NC} Stopped"
     fi
+    
+    # Thorough check: Use expensive process scanning only if requested
+    if [[ "$thorough_check" == "true" ]]; then
+        local mvn_pids=$(find_service_processes "$folder")
+        
+        if [[ -n "$mvn_pids" ]]; then
+            local mvn_pid=$(echo "$mvn_pids" | head -1)
+            # Update PID file with actual Maven/Java PID
+            echo "$mvn_pid" > "$pid_file"
+            echo -e "${GREEN}●${NC} Running (PID: $mvn_pid)"
+            return 0
+        fi
+    fi
+    
+    echo -e "${RED}●${NC} Stopped"
 }
 
 # Function to get available run scenarios
@@ -594,6 +598,8 @@ select_run_scenario() {
 
 # Function to show service status for current scenario
 show_status() {
+    local thorough_check="${1:-false}"  # Default to quick check
+    
     if [[ -z "$CURRENT_RUN_SCENARIO" ]]; then
         echo -e "${WHITE}📊 Service Status:${NC}"
         echo ""
@@ -604,15 +610,35 @@ show_status() {
     fi
     
     echo -e "${WHITE}📊 Service Status - Scenario: ${CYAN}$CURRENT_RUN_SCENARIO${NC}"
+    if [[ "$thorough_check" == "true" ]]; then
+        echo -e "${YELLOW}🔍 Performing thorough process scan...${NC}"
+    fi
     echo ""
     
     local running_count=0
     local total_count=0
+    local service_count=0
+    
+    # Count total services first for progress indication
+    local total_services=$(grep -v '^[[:space:]]*#' "$CURRENT_RUN_FILE" | grep -c '^[[:space:]]*[^[:space:]]')
     
     while IFS= read -r folder || [[ -n "$folder" ]]; do
         if [[ -n "$folder" && ! "$folder" =~ ^[[:space:]]*# ]]; then
             local service_name=$(basename "$folder")
-            local status=$(get_service_status "$folder")
+            ((service_count++))
+            
+            # Show progress indicator for thorough checks
+            if [[ "$thorough_check" == "true" ]]; then
+                printf "\r${BLUE}🔄 Checking services... (%d/%d) %s${NC}" "$service_count" "$total_services" "$service_name"
+                echo -en "\033[K"  # Clear to end of line
+            fi
+            
+            local status=$(get_service_status "$folder" "$thorough_check")
+            
+            # Clear progress line and show result
+            if [[ "$thorough_check" == "true" ]]; then
+                printf "\r\033[K"  # Clear the progress line
+            fi
             
             printf "  %-35s %s\n" "$service_name" "$status"
             
@@ -625,6 +651,9 @@ show_status() {
     
     echo ""
     echo -e "${CYAN}Summary: ${running_count}/${total_count} services running in $CURRENT_RUN_SCENARIO scenario${NC}"
+    if [[ "$thorough_check" == "true" && "$running_count" -eq 0 ]]; then
+        echo -e "${YELLOW}💡 Tip: Use 'Start all services' if you want to start the scenario services${NC}"
+    fi
     echo ""
 }
 
@@ -1401,7 +1430,7 @@ service_menu() {
         echo -e "${WHITE}🔧 Managing: ${CYAN}$service_name${NC}"
         echo ""
         
-        local status=$(get_service_status "$folder")
+        local status=$(get_service_status "$folder" true)
         echo -e "Status: $status"
         echo ""
         
@@ -1518,7 +1547,7 @@ individual_services_menu() {
         while IFS= read -r folder || [[ -n "$folder" ]]; do
             if [[ -n "$folder" && ! "$folder" =~ ^[[:space:]]*# ]]; then
                 local service_name=$(basename "$folder")
-                local status=$(get_service_status "$folder")
+                local status=$(get_service_status "$folder" true)
                 
                 services+=("$folder")
                 printf "  %d) %-30s %s\n" "$i" "$service_name" "$status"
@@ -1606,10 +1635,11 @@ main_menu() {
         echo -e "${CYAN}📊 Monitoring:${NC}"
         echo "12) View logs"
         echo "13) View startup statistics"
-        echo "14) Refresh status"
-        echo "15) Exit"
+        echo "14) Refresh status (quick)"
+        echo "15) Thorough status check"
+        echo "16) Exit"
         echo ""
-        echo -n "Choose an option [1-15]: "
+        echo -n "Choose an option [1-16]: "
         read -r choice
         
         case $choice in
@@ -1686,9 +1716,16 @@ main_menu() {
                 show_startup_stats
                 ;;
             14)
-                # Just refresh by continuing the loop
+                # Just refresh by continuing the loop (quick mode)
                 ;;
             15)
+                echo ""
+                echo -e "${BLUE}🔍 Performing thorough status check...${NC}"
+                show_status true
+                echo -n "Press Enter to continue..."
+                read -r
+                ;;
+            16)
                 echo ""
                 echo -e "${GREEN}👋 Goodbye!${NC}"
                 exit 0
