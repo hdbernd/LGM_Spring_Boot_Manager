@@ -237,17 +237,55 @@ show_header() {
     echo ""
 }
 
+# Helper function to find Maven/Java processes for a service
+find_service_processes() {
+    local folder="$1"
+    local service_name=$(basename "$folder")
+    local found_pids=""
+    
+    # Pattern 1: Look for Maven processes with spring-boot:run in service directory
+    found_pids=$(pgrep -f "mvn.*spring-boot:run" | while read pid; do
+        local proc_cwd=$(lsof -p "$pid" 2>/dev/null | grep " cwd " | awk '{print $NF}')
+        if [[ "$proc_cwd" == "$folder" || "$proc_cwd" == "$folder"* ]]; then
+            echo "$pid"
+        fi
+    done)
+    
+    # Pattern 2: If no Maven process found, try looking for java processes with Spring Boot characteristics
+    if [[ -z "$found_pids" ]]; then
+        found_pids=$(pgrep -f "java.*spring-boot" | while read pid; do
+            local proc_cwd=$(lsof -p "$pid" 2>/dev/null | grep " cwd " | awk '{print $NF}')
+            if [[ "$proc_cwd" == "$folder" || "$proc_cwd" == "$folder"* ]]; then
+                echo "$pid"
+            fi
+        done)
+    fi
+    
+    # Pattern 3: Check if service name appears in process command line  
+    if [[ -z "$found_pids" ]]; then
+        found_pids=$(pgrep -f "$service_name" | while read pid; do
+            # Verify it's a Maven or Java process
+            if ps -p "$pid" -o command= 2>/dev/null | grep -q -E "(mvn|java).*(spring-boot|SpringApplication)"; then
+                echo "$pid"
+            fi
+        done)
+    fi
+    
+    echo "$found_pids"
+}
+
 # Function to get service status
 get_service_status() {
     local folder="$1"
     local service_name=$(basename "$folder")
     local pid_file="$PID_DIR/$service_name.pid"
     
-    # First check if there's a running mvn process for this service
-    local mvn_pids=$(pgrep -f "mvn spring-boot:run.*$service_name")
+    # Use helper function to find running processes
+    local mvn_pids=$(find_service_processes "$folder")
+    
     if [[ -n "$mvn_pids" ]]; then
         local mvn_pid=$(echo "$mvn_pids" | head -1)
-        # Update PID file with actual Maven PID
+        # Update PID file with actual Maven/Java PID
         echo "$mvn_pid" > "$pid_file"
         echo -e "${GREEN}●${NC} Running (PID: $mvn_pid)"
         return 0
@@ -257,7 +295,13 @@ get_service_status() {
     if [[ -f "$pid_file" ]]; then
         local pid=$(cat "$pid_file")
         if ps -p "$pid" > /dev/null 2>&1; then
-            echo -e "${YELLOW}●${NC} Terminal open (PID: $pid)"
+            # Check if this is still a relevant process (Maven/Java)
+            if ps -p "$pid" -o command= | grep -q -E "(mvn|java).*spring-boot"; then
+                echo -e "${GREEN}●${NC} Running (PID: $pid)"
+                return 0
+            else
+                echo -e "${YELLOW}●${NC} Terminal open (PID: $pid)"
+            fi
         else
             echo -e "${RED}●${NC} Stopped (stale PID)"
             rm -f "$pid_file"
@@ -736,13 +780,23 @@ EOF
         # Wait a moment for the service to start
         sleep 3
         
-        # Find the mvn process
-        local mvn_pid=$(pgrep -f "mvn spring-boot:run.*$service_name" | head -1)
+        # Find the mvn process using helper function
+        local mvn_pid=""
+        local attempts=0
+        while [[ -z "$mvn_pid" && $attempts -lt 10 ]]; do
+            mvn_pid=$(find_service_processes "$folder" | head -1)
+            
+            if [[ -z "$mvn_pid" ]]; then
+                sleep 1
+                ((attempts++))
+            fi
+        done
+        
         if [[ -n "$mvn_pid" ]]; then
             echo $mvn_pid > "$pid_file"
             echo -e "${GREEN}✅ Started $service_name in terminal (PID: $mvn_pid)${NC}"
         else
-            echo -e "${YELLOW}⚠️  $service_name terminal opened, waiting for startup...${NC}"
+            echo -e "${YELLOW}⚠️  $service_name terminal opened, waiting for Maven startup...${NC}"
             # Create a placeholder PID file with terminal PID for tracking
             echo $terminal_pid > "$pid_file"
         fi
@@ -779,23 +833,25 @@ stop_service() {
     
     local pid=$(cat "$pid_file")
     
-    # First try to find and kill the actual mvn process
-    local mvn_pids=$(pgrep -f "mvn spring-boot:run.*$service_name")
+    # First try to find and kill the actual mvn/java process using helper function
+    local mvn_pids=$(find_service_processes "$folder")
+    
     if [[ -n "$mvn_pids" ]]; then
-        echo -e "${BLUE}🔄 Stopping $service_name (Maven process)...${NC}"
+        echo -e "${BLUE}🔄 Stopping $service_name (Maven/Java process)...${NC}"
         for mvn_pid in $mvn_pids; do
             kill "$mvn_pid" 2>/dev/null
             
             # Wait for process to stop
             local count=0
-            while ps -p "$mvn_pid" > /dev/null 2>&1 && [[ $count -lt 10 ]]; do
+            while ps -p "$mvn_pid" > /dev/null 2>&1 && [[ $count -lt 15 ]]; do
                 sleep 1
                 ((count++))
             done
             
             if ps -p "$mvn_pid" > /dev/null 2>&1; then
-                echo -e "${YELLOW}⚠️  Force killing Maven process...${NC}"
+                echo -e "${YELLOW}⚠️  Force killing process (PID: $mvn_pid)...${NC}"
                 kill -9 "$mvn_pid" 2>/dev/null
+                sleep 1
             fi
         done
         echo -e "${GREEN}✅ Stopped $service_name${NC}"
@@ -1082,6 +1138,186 @@ pull_and_build_all() {
     echo -e "${PURPLE}========================================${NC}"
 }
 
+# Function to pull and build all services in parallel
+pull_and_build_all_parallel() {
+    local config_file=""
+    local config_display=""
+    
+    if [[ "$BUILD_CONFIG_MODE" == "run_scenario" ]]; then
+        if [[ -z "$CURRENT_RUN_FILE" ]]; then
+            echo -e "${RED}❌ No run scenario selected${NC}"
+            echo -e "${YELLOW}Please select a run scenario first or switch to build_folders mode${NC}"
+            return 1
+        fi
+        config_file="$CURRENT_RUN_FILE"
+        config_display="$CURRENT_RUN_SCENARIO scenario"
+    else
+        if [[ ! -f "$BUILD_FOLDERS_FILE" ]]; then
+            echo -e "${RED}❌ Build configuration file not found: $BUILD_FOLDERS_FILE${NC}"
+            echo -e "${YELLOW}Please create build_folders.txt with service paths for build operations${NC}"
+            return 1
+        fi
+        config_file="$BUILD_FOLDERS_FILE"
+        config_display="build_folders.txt"
+    fi
+    
+    echo -e "${WHITE}🔄 Pull and build all services in parallel from: ${CYAN}$config_display${NC}"
+    echo ""
+    
+    # First, collect all valid folders
+    local folders=()
+    while IFS= read -r folder || [[ -n "$folder" ]]; do
+        if [[ -n "$folder" && ! "$folder" =~ ^[[:space:]]*# ]]; then
+            folders+=("$folder")
+        fi
+    done < "$config_file"
+    
+    if [[ ${#folders[@]} -eq 0 ]]; then
+        echo -e "${RED}❌ No services found in configuration${NC}"
+        return 1
+    fi
+    
+    local total_count=${#folders[@]}
+    echo -e "${CYAN}🚀 Starting parallel operations for $total_count services...${NC}"
+    echo ""
+    
+    # Start all git pull operations in parallel
+    echo -e "${BLUE}📥 Phase 1: Git pull operations${NC}"
+    local pull_pids=()
+    local pull_logs=()
+    
+    for folder in "${folders[@]}"; do
+        local service_name=$(basename "$folder")
+        local pull_log="/tmp/pull_${service_name}_$$.log"
+        pull_logs+=("$pull_log")
+        
+        echo -e "${YELLOW}  🔄 Starting git pull for $service_name...${NC}"
+        
+        # Run git pull in background, saving output to log file
+        (
+            cd "$folder" 2>/dev/null || {
+                echo "❌ Error: Directory $folder does not exist" > "$pull_log"
+                exit 1
+            }
+            
+            if [[ ! -d ".git" ]]; then
+                echo "⚠️  $service_name is not a git repository, skipping..." > "$pull_log"
+                exit 0
+            fi
+            
+            echo "🔄 Git pulling $service_name..." > "$pull_log"
+            if git pull >> "$pull_log" 2>&1; then
+                echo "✅ Git pull successful for $service_name" >> "$pull_log"
+                exit 0
+            else
+                echo "❌ Git pull failed for $service_name" >> "$pull_log"
+                exit 1
+            fi
+        ) &
+        
+        pull_pids+=($!)
+    done
+    
+    # Wait for all git pull operations to complete
+    echo ""
+    echo -e "${CYAN}⏳ Waiting for all git pull operations to complete...${NC}"
+    
+    local pull_success_count=0
+    for i in "${!pull_pids[@]}"; do
+        local pid=${pull_pids[$i]}
+        local service_name=$(basename "${folders[$i]}")
+        local pull_log=${pull_logs[$i]}
+        
+        wait $pid
+        local exit_code=$?
+        
+        # Show results
+        if [[ $exit_code -eq 0 ]]; then
+            ((pull_success_count++))
+            echo -e "${GREEN}  ✅ $service_name: $(tail -1 "$pull_log")${NC}"
+        else
+            echo -e "${RED}  ❌ $service_name: $(tail -1 "$pull_log")${NC}"
+        fi
+        
+        # Clean up log file
+        rm -f "$pull_log"
+    done
+    
+    echo ""
+    echo -e "${CYAN}📊 Git pull summary: ${pull_success_count}/${total_count} services updated successfully${NC}"
+    echo ""
+    
+    # Start all Maven clean install operations in parallel
+    echo -e "${BLUE}🔨 Phase 2: Maven clean install operations${NC}"
+    local build_pids=()
+    local build_logs=()
+    
+    for folder in "${folders[@]}"; do
+        local service_name=$(basename "$folder")
+        local build_log="/tmp/build_${service_name}_$$.log"
+        build_logs+=("$build_log")
+        
+        echo -e "${YELLOW}  🔄 Starting clean install for $service_name...${NC}"
+        
+        # Run Maven clean install in background, saving output to log file
+        (
+            cd "$folder" 2>/dev/null || {
+                echo "❌ Error: Directory $folder does not exist" > "$build_log"
+                exit 1
+            }
+            
+            if [[ ! -f "pom.xml" ]]; then
+                echo "⚠️  No pom.xml found in $service_name, skipping..." > "$build_log"
+                exit 0
+            fi
+            
+            echo "🔄 Clean installing $service_name..." > "$build_log"
+            if mvn clean install >> "$build_log" 2>&1; then
+                echo "✅ Clean install successful for $service_name" >> "$build_log"
+                exit 0
+            else
+                echo "❌ Clean install failed for $service_name" >> "$build_log"
+                exit 1
+            fi
+        ) &
+        
+        build_pids+=($!)
+    done
+    
+    # Wait for all Maven operations to complete
+    echo ""
+    echo -e "${CYAN}⏳ Waiting for all Maven clean install operations to complete...${NC}"
+    
+    local build_success_count=0
+    for i in "${!build_pids[@]}"; do
+        local pid=${build_pids[$i]}
+        local service_name=$(basename "${folders[$i]}")
+        local build_log=${build_logs[$i]}
+        
+        wait $pid
+        local exit_code=$?
+        
+        # Show results
+        if [[ $exit_code -eq 0 ]]; then
+            ((build_success_count++))
+            echo -e "${GREEN}  ✅ $service_name: $(tail -1 "$build_log")${NC}"
+        else
+            echo -e "${RED}  ❌ $service_name: $(tail -1 "$build_log")${NC}"
+        fi
+        
+        # Clean up log file
+        rm -f "$build_log"
+    done
+    
+    echo ""
+    echo -e "${PURPLE}========================================${NC}"
+    echo -e "${CYAN}📊 Final summary:${NC}"
+    echo -e "${CYAN}  Git pull: ${pull_success_count}/${total_count} services updated successfully${NC}"
+    echo -e "${CYAN}  Maven build: ${build_success_count}/${total_count} services built successfully${NC}"
+    echo -e "${CYAN}  Overall: $((pull_success_count < build_success_count ? pull_success_count : build_success_count))/${total_count} services fully processed${NC}"
+    echo -e "${PURPLE}========================================${NC}"
+}
+
 # Function to show startup statistics
 show_startup_stats() {
     local stats_file="$PID_DIR/startup_stats.log"
@@ -1364,15 +1600,16 @@ main_menu() {
         echo -e "${CYAN}🔨 Build Operations:${NC} ${YELLOW}(using: $build_display)${NC}"
         echo "8) Git pull all services"
         echo "9) Clean install all services"
-        echo "10) Pull and build all services"
+        echo "10) Pull and build all services (sequential)"
+        echo "11) Pull and build all services (parallel)"
         echo ""
         echo -e "${CYAN}📊 Monitoring:${NC}"
-        echo "11) View logs"
-        echo "12) View startup statistics"
-        echo "13) Refresh status"
-        echo "14) Exit"
+        echo "12) View logs"
+        echo "13) View startup statistics"
+        echo "14) Refresh status"
+        echo "15) Exit"
         echo ""
-        echo -n "Choose an option [1-14]: "
+        echo -n "Choose an option [1-15]: "
         read -r choice
         
         case $choice in
@@ -1436,15 +1673,22 @@ main_menu() {
                 read -r
                 ;;
             11)
-                show_logs
+                echo ""
+                pull_and_build_all_parallel
+                echo ""
+                echo -n "Press Enter to continue..."
+                read -r
                 ;;
             12)
-                show_startup_stats
+                show_logs
                 ;;
             13)
-                # Just refresh by continuing the loop
+                show_startup_stats
                 ;;
             14)
+                # Just refresh by continuing the loop
+                ;;
+            15)
                 echo ""
                 echo -e "${GREEN}👋 Goodbye!${NC}"
                 exit 0
