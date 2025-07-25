@@ -1463,12 +1463,14 @@ pull_and_build_all_parallel() {
     echo -e "${BLUE}📥 Phase 1: Git pull operations${NC}"
     local pull_pids=()
     local pull_logs=()
+    local pull_start_times=()
     local pull_start_time=$(date +%s)
     
     for folder in "${folders[@]}"; do
         local service_name=$(basename "$folder")
         local pull_log="/tmp/pull_${service_name}_$$.log"
         pull_logs+=("$pull_log")
+        pull_start_times+=($(date +%s))
         
         echo -e "${YELLOW}  🔄 Starting git pull for $service_name...${NC}"
         
@@ -1530,21 +1532,24 @@ pull_and_build_all_parallel() {
     
     echo "" # New line after progress indicator
     
-    # Collect results
+    # Collect results with timing
     for i in "${!pull_pids[@]}"; do
         local pid=${pull_pids[$i]}
         local service_name=$(basename "${folders[$i]}")
         local pull_log=${pull_logs[$i]}
+        local service_start_time=${pull_start_times[$i]}
         
         wait $pid
         local exit_code=$?
+        local service_end_time=$(date +%s)
+        local service_duration=$((service_end_time - service_start_time))
         
-        # Show results
+        # Show results with timing
         if [[ $exit_code -eq 0 ]]; then
             ((pull_success_count++))
-            echo -e "${GREEN}  ✅ $service_name: $(tail -1 "$pull_log")${NC}"
+            echo -e "${GREEN}  ✅ $service_name: $(tail -1 "$pull_log") (${service_duration}s)${NC}"
         else
-            echo -e "${RED}  ❌ $service_name: $(tail -1 "$pull_log")${NC}"
+            echo -e "${RED}  ❌ $service_name: $(tail -1 "$pull_log") (${service_duration}s)${NC}"
         fi
         
         # Clean up log file
@@ -1559,12 +1564,14 @@ pull_and_build_all_parallel() {
     echo -e "${BLUE}🔨 Phase 2: Maven clean install operations${NC}"
     local build_pids=()
     local build_logs=()
+    local build_start_times=()
     local build_start_time=$(date +%s)
     
     for folder in "${folders[@]}"; do
         local service_name=$(basename "$folder")
         local build_log="/tmp/build_${service_name}_$$.log"
         build_logs+=("$build_log")
+        build_start_times+=($(date +%s))
         
         echo -e "${YELLOW}  🔄 Starting clean install for $service_name...${NC}"
         
@@ -1633,21 +1640,28 @@ pull_and_build_all_parallel() {
     
     echo "" # New line after progress indicator
     
-    # Collect results
+    # Collect results with timing
+    local service_timings=()
     for i in "${!build_pids[@]}"; do
         local pid=${build_pids[$i]}
         local service_name=$(basename "${folders[$i]}")
         local build_log=${build_logs[$i]}
+        local service_start_time=${build_start_times[$i]}
         
         wait $pid
         local exit_code=$?
+        local service_end_time=$(date +%s)
+        local service_duration=$((service_end_time - service_start_time))
         
-        # Show results
+        # Store timing for summary
+        service_timings+=("$service_name:$service_duration")
+        
+        # Show results with timing
         if [[ $exit_code -eq 0 ]]; then
             ((build_success_count++))
-            echo -e "${GREEN}  ✅ $service_name: $(tail -1 "$build_log")${NC}"
+            echo -e "${GREEN}  ✅ $service_name: $(tail -1 "$build_log") (${service_duration}s)${NC}"
         else
-            echo -e "${RED}  ❌ $service_name: $(tail -1 "$build_log")${NC}"
+            echo -e "${RED}  ❌ $service_name: $(tail -1 "$build_log") (${service_duration}s)${NC}"
         fi
         
         # Clean up log file
@@ -1662,6 +1676,22 @@ pull_and_build_all_parallel() {
     echo -e "${CYAN}  Maven build: ${build_success_count}/${total_count} services built successfully${NC}"
     echo -e "${CYAN}  Overall: $((pull_success_count < build_success_count ? pull_success_count : build_success_count))/${total_count} services fully processed${NC}"
     echo -e "${GREEN}  ⏱️  Total time: ${total_elapsed}s (parallel execution)${NC}"
+    
+    # Show individual build timings sorted by duration
+    if [[ ${#service_timings[@]} -gt 0 ]]; then
+        echo -e "${CYAN}  📈 Build times by service:${NC}"
+        # Sort by build time (descending)
+        printf '%s\n' "${service_timings[@]}" | sort -t: -k2 -nr | while IFS=: read -r service time; do
+            if [[ $time -ge 60 ]]; then
+                local minutes=$((time / 60))
+                local seconds=$((time % 60))
+                echo -e "${YELLOW}    • $service: ${minutes}m ${seconds}s${NC}"
+            else
+                echo -e "${YELLOW}    • $service: ${time}s${NC}"
+            fi
+        done
+    fi
+    
     if [[ $build_success_count -gt 0 ]]; then
         echo -e "${YELLOW}  🚀 JARs ready for fast startup mode${NC}"
     fi
