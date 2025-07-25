@@ -1165,7 +1165,7 @@ git_pull_service() {
     fi
 }
 
-# Function to clean install a single service
+# Function to clean install a single service (includes JAR generation)
 clean_install_service() {
     local folder="$1"
     local service_name=$(basename "$folder")
@@ -1182,10 +1182,19 @@ clean_install_service() {
         return 0
     fi
     
-    echo -e "${BLUE}🔄 Clean installing $service_name...${NC}"
+    echo -e "${BLUE}🔄 Clean installing $service_name (with JAR generation)...${NC}"
     
-    if mvn clean install; then
-        echo -e "${GREEN}✅ Clean install successful for $service_name${NC}"
+    # Use 'package' instead of 'install' to ensure JAR creation, skip tests for speed
+    if mvn clean package -DskipTests -Dmaven.compiler.fork=true; then
+        # Check if JAR was created
+        local jar_file=$(find target -name "*.jar" -not -name "*sources.jar" -not -name "*javadoc.jar" 2>/dev/null | head -1)
+        if [[ -n "$jar_file" ]]; then
+            echo -e "${GREEN}✅ Clean install successful for $service_name${NC}"
+            echo -e "${CYAN}🏗️  JAR created: $(basename "$jar_file") (ready for fast startup)${NC}"
+        else
+            echo -e "${GREEN}✅ Clean install successful for $service_name${NC}"
+            echo -e "${YELLOW}⚠️  JAR not found in expected location${NC}"
+        fi
     else
         echo -e "${RED}❌ Clean install failed for $service_name${NC}"
         return 1
@@ -1353,7 +1362,8 @@ build_jars_all_services() {
     fi
     
     echo -e "${WHITE}🏗️  Building executable JARs for all services from: ${CYAN}$config_display${NC}"
-    echo -e "${YELLOW}💡 This creates optimized JARs for faster service startup${NC}"
+    echo -e "${YELLOW}💡 This packages compiled sources into JARs for faster service startup${NC}"
+    echo -e "${CYAN}Note: Sources must be already compiled (use clean install if unsure)${NC}"
     echo ""
     
     local success_count=0
@@ -1382,7 +1392,7 @@ build_jars_all_services() {
             
             echo -e "${BLUE}🔄 Building JAR for $service_name...${NC}"
             
-            if mvn clean package -DskipTests -Dmaven.compiler.fork=true; then
+            if mvn package -DskipTests -Dmaven.compiler.fork=true; then
                 ((success_count++))
                 # Check if JAR was created
                 local jar_file=$(find target -name "*.jar" -not -name "*sources.jar" -not -name "*javadoc.jar" | head -1)
@@ -1539,9 +1549,15 @@ pull_and_build_all_parallel() {
                 exit 0
             fi
             
-            echo "🔄 Clean installing $service_name..." > "$build_log"
-            if mvn clean install >> "$build_log" 2>&1; then
-                echo "✅ Clean install successful for $service_name" >> "$build_log"
+            echo "🔄 Clean installing $service_name (with JAR generation)..." > "$build_log"
+            if mvn clean package -DskipTests -Dmaven.compiler.fork=true >> "$build_log" 2>&1; then
+                # Check if JAR was created and add to log
+                local jar_file=$(find target -name "*.jar" -not -name "*sources.jar" -not -name "*javadoc.jar" 2>/dev/null | head -1)
+                if [[ -n "$jar_file" ]]; then
+                    echo "✅ Clean install successful for $service_name - JAR: $(basename "$jar_file")" >> "$build_log"
+                else
+                    echo "✅ Clean install successful for $service_name - JAR not found" >> "$build_log"
+                fi
                 exit 0
             else
                 echo "❌ Clean install failed for $service_name" >> "$build_log"
@@ -1678,8 +1694,8 @@ service_menu() {
         echo "3) Stop service"
         echo "4) Restart service"
         echo "5) Git pull service"
-        echo "6) Clean install service"
-        echo "7) Pull and build service"
+        echo "6) Clean install service (+ JAR)"
+        echo "7) Pull and build service (+ JAR)"
         echo "8) View logs"
         echo "9) Back to main menu"
         echo ""
@@ -1875,10 +1891,10 @@ main_menu() {
         
         echo -e "${CYAN}🔨 Build Operations:${NC} ${YELLOW}(using: $build_display)${NC}"
         echo "8) Git pull all services"
-        echo "9) Clean install all services"
-        echo "10) Pull and build all services (sequential)"
-        echo "11) Pull and build all services (parallel)"
-        echo "12) Build JARs for all services (faster startup)"
+        echo "9) Clean install all services (+ JARs)"
+        echo "10) Pull and build all services (sequential + JARs)"
+        echo "11) Pull and build all services (parallel + JARs)"
+        echo "12) Build JARs only (if already compiled)"
         echo ""
         echo -e "${CYAN}📊 Monitoring:${NC}"
         echo "13) View logs"
