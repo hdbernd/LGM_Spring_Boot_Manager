@@ -1731,6 +1731,75 @@ show_startup_stats() {
     read -r
 }
 
+# Function to clean CDS NGL messages file
+clean_cds_messages_file() {
+    local messages_file="$HOME/.cds-ngl-messages.txt"
+    
+    echo -e "${WHITE}🧹 CDS NGL Messages File Management:${NC}"
+    echo ""
+    
+    # Check if file exists and show current size
+    if [[ -f "$messages_file" ]]; then
+        local file_size=$(ls -lah "$messages_file" | awk '{print $5}')
+        local line_count=$(wc -l < "$messages_file" 2>/dev/null || echo "0")
+        
+        echo -e "${CYAN}📄 Current file status:${NC}"
+        echo "  File: $messages_file"
+        echo "  Size: $file_size"
+        echo "  Lines: $line_count"
+        echo ""
+        
+        # Show file age
+        if command -v stat >/dev/null 2>&1; then
+            local file_age
+            if [[ "$OSTYPE" == "darwin"* ]]; then
+                # macOS
+                file_age=$(stat -f "%Sm" -t "%Y-%m-%d %H:%M:%S" "$messages_file")
+            else
+                # Linux
+                file_age=$(stat -c "%y" "$messages_file" | cut -d'.' -f1)
+            fi
+            echo -e "${CYAN}  Last modified: $file_age${NC}"
+            echo ""
+        fi
+        
+        # Ask for confirmation
+        echo -e "${YELLOW}⚠️  This will completely clear the contents of the CDS NGL messages file.${NC}"
+        echo -n "Are you sure you want to clean this file? [y/N]: "
+        read -r confirm
+        
+        case "$confirm" in
+            [yY]|[yY][eE][sS])
+                echo ""
+                echo -e "${BLUE}🧹 Cleaning CDS NGL messages file...${NC}"
+                
+                # Create backup first
+                local backup_file="${messages_file}.backup.$(date +%Y%m%d_%H%M%S)"
+                if cp "$messages_file" "$backup_file" 2>/dev/null; then
+                    echo -e "${GREEN}✅ Backup created: $backup_file${NC}"
+                else
+                    echo -e "${YELLOW}⚠️  Could not create backup, but continuing...${NC}"
+                fi
+                
+                # Clear the file
+                if > "$messages_file" 2>/dev/null; then
+                    echo -e "${GREEN}✅ CDS NGL messages file has been cleaned${NC}"
+                    echo -e "${CYAN}📊 New file size: $(ls -lah "$messages_file" | awk '{print $5}')${NC}"
+                else
+                    echo -e "${RED}❌ Failed to clean the file. Check permissions.${NC}"
+                fi
+                ;;
+            *)
+                echo ""
+                echo -e "${CYAN}Operation cancelled.${NC}"
+                ;;
+        esac
+    else
+        echo -e "${YELLOW}📄 File not found: $messages_file${NC}"
+        echo -e "${CYAN}The CDS NGL messages file does not exist yet.${NC}"
+    fi
+}
+
 # Function to show logs
 show_logs() {
     echo -e "${WHITE}📋 Available log files:${NC}"
@@ -1997,9 +2066,12 @@ main_menu() {
         echo "14) View startup statistics"
         echo "15) Refresh status (quick)"
         echo "16) Thorough status check"
-        echo "17) Exit"
         echo ""
-        echo -n "Choose an option [1-17]: "
+        echo -e "${CYAN}🧹 Maintenance:${NC}"
+        echo "17) Clean CDS NGL messages file"
+        echo "18) Exit"
+        echo ""
+        echo -n "Choose an option [1-18]: "
         read -r choice
         
         case $choice in
@@ -2093,6 +2165,13 @@ main_menu() {
                 read -r
                 ;;
             17)
+                echo ""
+                clean_cds_messages_file
+                echo ""
+                echo -n "Press Enter to continue..."
+                read -r
+                ;;
+            18)
                 echo ""
                 echo -e "${GREEN}👋 Goodbye!${NC}"
                 exit 0
