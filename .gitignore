@@ -38,4 +38,4 @@ temp/
 # OS generated files
 Thumbs.db
 ehthumbs.db
-Desktop.ini
+Desktop.ini__pycache__/
