@@ -26,19 +26,38 @@ fi
 
 echo -e "${GREEN}✅ Python 3 found: $(python3 --version)${NC}"
 
-# Check if Flask is installed
+# Check if Flask is installed, if not create virtual environment
 if ! python3 -c "import flask" &> /dev/null; then
-    echo -e "${YELLOW}⚠️  Flask not found, installing requirements...${NC}"
+    echo -e "${YELLOW}⚠️  Flask not found, setting up virtual environment...${NC}"
     
-    # Try to install Flask using pip
-    if command -v pip3 &> /dev/null; then
-        pip3 install -r requirements.txt
-    elif command -v pip &> /dev/null; then
-        pip install -r requirements.txt
-    else
-        echo -e "${RED}❌ Error: pip not found. Please install Flask manually:${NC}"
-        echo -e "${YELLOW}   pip3 install Flask==3.0.0${NC}"
+    # Create virtual environment if it doesn't exist
+    if [[ ! -d "venv" ]]; then
+        echo -e "${BLUE}📦 Creating virtual environment...${NC}"
+        python3 -m venv venv
+        if [[ $? -ne 0 ]]; then
+            echo -e "${RED}❌ Error: Failed to create virtual environment${NC}"
+            exit 1
+        fi
+    fi
+    
+    # Activate virtual environment
+    echo -e "${BLUE}🔧 Activating virtual environment...${NC}"
+    source venv/bin/activate
+    
+    # Install requirements
+    echo -e "${BLUE}📦 Installing Flask...${NC}"
+    pip install -r requirements.txt
+    if [[ $? -ne 0 ]]; then
+        echo -e "${RED}❌ Error: Failed to install Flask${NC}"
         exit 1
+    fi
+    
+    echo -e "${GREEN}✅ Virtual environment setup complete${NC}"
+else
+    # Flask is already available, check if we should use venv
+    if [[ -d "venv" ]]; then
+        echo -e "${BLUE}🔧 Activating existing virtual environment...${NC}"
+        source venv/bin/activate
     fi
 fi
 
@@ -54,7 +73,7 @@ echo ""
 
 # Start the web UI
 echo -e "${GREEN}🚀 Starting web interface...${NC}"
-echo -e "${BLUE}📱 Open your browser and go to: ${YELLOW}http://localhost:8080${NC}"
+echo -e "${BLUE}📱 Open your browser and go to: ${YELLOW}http://localhost:8098${NC}"
 echo -e "${BLUE}🛑 Press Ctrl+C to stop the web server${NC}"
 echo ""
 

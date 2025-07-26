@@ -39,3 +39,5 @@ temp/
 Thumbs.db
 ehthumbs.db
 Desktop.ini__pycache__/
+venv/
+*.pyc

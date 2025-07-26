@@ -322,7 +322,7 @@ if __name__ == '__main__':
     
     print("🌐 LGM Spring Boot Service Manager - Web UI")
     print(f"📂 Working directory: {SCRIPT_DIR}")
-    print("🚀 Starting server on http://localhost:8080")
+    print("🚀 Starting server on http://localhost:8098")
     print("💡 Press Ctrl+C to stop")
     
-    app.run(host='0.0.0.0', port=8080, debug=False, threaded=True)
+    app.run(host='0.0.0.0', port=8098, debug=False, threaded=True)

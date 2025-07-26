@@ -44,7 +44,7 @@ python3 web_ui.py
 ```
 
 ### Access the Interface
-Open your browser and navigate to: **http://localhost:8080**
+Open your browser and navigate to: **http://localhost:8098**
 
 ## Usage
 
@@ -71,7 +71,7 @@ Open your browser and navigate to: **http://localhost:8080**
 - **Backend**: Python Flask web server
 - **Frontend**: Vanilla JavaScript with modern CSS
 - **Integration**: RESTful API calls to bash script functions
-- **Port**: 8080 (configurable in web_ui.py)
+- **Port**: 8098 (configurable in web_ui.py)
 
 ### API Endpoints
 - `GET /api/status` - Service status information
@@ -92,7 +92,7 @@ Open your browser and navigate to: **http://localhost:8080**
 ### Change Port
 Edit `web_ui.py` and modify the last line:
 ```python
-app.run(host='0.0.0.0', port=8080, debug=False, threaded=True)
+app.run(host='0.0.0.0', port=8098, debug=False, threaded=True)
 ```
 
 ### Styling
@@ -117,7 +117,7 @@ chmod +x web_ui.py
 ### Port Already in Use
 Change the port in `web_ui.py` or stop the conflicting process:
 ```bash
-lsof -ti:8080 | xargs kill -9
+lsof -ti:8098 | xargs kill -9
 ```
 
 ### Service Manager Not Found
