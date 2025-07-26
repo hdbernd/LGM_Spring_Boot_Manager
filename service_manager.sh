@@ -242,33 +242,75 @@ find_service_processes() {
     local folder="$1"
     local service_name=$(basename "$folder")
     local found_pids=""
+    local debug_mode=${2:-false}
+    
+    if [[ "$debug_mode" == true ]]; then
+        echo "🔍 Debug: Searching for $service_name processes in $folder" >&2
+    fi
     
     # Pattern 1: Look for Maven processes with spring-boot:run in service directory
-    found_pids=$(pgrep -f "mvn.*spring-boot:run" | while read pid; do
-        local proc_cwd=$(lsof -p "$pid" 2>/dev/null | grep " cwd " | awk '{print $NF}')
-        if [[ "$proc_cwd" == "$folder" || "$proc_cwd" == "$folder"* ]]; then
-            echo "$pid"
+    found_pids=$(pgrep -f "mvn.*spring-boot:run" 2>/dev/null | while read pid; do
+        if ps -p "$pid" > /dev/null 2>&1; then
+            local proc_cwd=$(lsof -p "$pid" 2>/dev/null | grep " cwd " | awk '{print $NF}')
+            if [[ "$debug_mode" == true ]]; then
+                echo "🔍 Debug: Maven PID $pid has CWD: $proc_cwd" >&2
+            fi
+            if [[ "$proc_cwd" == "$folder" || "$proc_cwd" == "$folder"* ]]; then
+                echo "$pid"
+            fi
         fi
     done)
     
     # Pattern 2: If no Maven process found, try looking for java processes with Spring Boot characteristics
     if [[ -z "$found_pids" ]]; then
-        found_pids=$(pgrep -f "java.*spring-boot" | while read pid; do
-            local proc_cwd=$(lsof -p "$pid" 2>/dev/null | grep " cwd " | awk '{print $NF}')
-            if [[ "$proc_cwd" == "$folder" || "$proc_cwd" == "$folder"* ]]; then
-                echo "$pid"
+        found_pids=$(pgrep -f "java.*spring-boot" 2>/dev/null | while read pid; do
+            if ps -p "$pid" > /dev/null 2>&1; then
+                local proc_cwd=$(lsof -p "$pid" 2>/dev/null | grep " cwd " | awk '{print $NF}')
+                if [[ "$debug_mode" == true ]]; then
+                    echo "🔍 Debug: Java PID $pid has CWD: $proc_cwd" >&2
+                fi
+                if [[ "$proc_cwd" == "$folder" || "$proc_cwd" == "$folder"* ]]; then
+                    echo "$pid"
+                fi
             fi
         done)
     fi
     
-    # Pattern 3: Check if service name appears in process command line  
+    # Pattern 3: Look for JAR-based processes with service name
     if [[ -z "$found_pids" ]]; then
-        found_pids=$(pgrep -f "$service_name" | while read pid; do
-            # Verify it's a Maven or Java process
-            if ps -p "$pid" -o command= 2>/dev/null | grep -q -E "(mvn|java).*(spring-boot|SpringApplication)"; then
-                echo "$pid"
+        found_pids=$(pgrep -f "java.*$service_name.*jar" 2>/dev/null | while read pid; do
+            if ps -p "$pid" > /dev/null 2>&1; then
+                local proc_cwd=$(lsof -p "$pid" 2>/dev/null | grep " cwd " | awk '{print $NF}')
+                if [[ "$debug_mode" == true ]]; then
+                    echo "🔍 Debug: JAR PID $pid has CWD: $proc_cwd" >&2
+                fi
+                if [[ "$proc_cwd" == "$folder" || "$proc_cwd" == "$folder"* ]]; then
+                    echo "$pid"
+                fi
             fi
         done)
+    fi
+    
+    # Pattern 4: Check if service name appears in process command line with Spring characteristics
+    if [[ -z "$found_pids" ]]; then
+        found_pids=$(pgrep -f "$service_name" 2>/dev/null | while read pid; do
+            if ps -p "$pid" > /dev/null 2>&1; then
+                local cmd_line=$(ps -p "$pid" -o command= 2>/dev/null)
+                if [[ "$debug_mode" == true ]]; then
+                    echo "🔍 Debug: PID $pid command: ${cmd_line:0:100}..." >&2
+                fi
+                # Verify it's a Maven or Java process with Spring characteristics
+                if echo "$cmd_line" | grep -q -E "(mvn|java).*(spring-boot|SpringApplication|\.jar)"; then
+                    echo "$pid"
+                fi
+            fi
+        done)
+    fi
+    
+    if [[ "$debug_mode" == true && -n "$found_pids" ]]; then
+        echo "🔍 Debug: Found PIDs for $service_name: $found_pids" >&2
+    elif [[ "$debug_mode" == true ]]; then
+        echo "🔍 Debug: No PIDs found for $service_name" >&2
     fi
     
     echo "$found_pids"
@@ -1088,8 +1130,13 @@ stop_all_services() {
     echo -e "${WHITE}🛑 Stopping all running services...${NC}"
     echo ""
     
+    local services_found=false
+    local stopped_count=0
+    
+    # Check for PID files first
     for pid_file in "$PID_DIR"/*.pid; do
         if [[ -f "$pid_file" ]]; then
+            services_found=true
             local service_name=$(basename "$pid_file" .pid)
             
             # Find folder for this service (check current scenario first, then build folders)
@@ -1121,21 +1168,97 @@ stop_all_services() {
             
             if [[ -n "$service_folder" ]]; then
                 stop_service "$service_folder"
+                ((stopped_count++))
             else
                 echo -e "${YELLOW}⚠️  Could not find folder for $service_name, stopping by PID only${NC}"
                 # Fallback: stop by PID file only
                 local pid=$(cat "$pid_file")
                 if ps -p "$pid" > /dev/null 2>&1; then
                     kill "$pid" 2>/dev/null
-                    echo -e "${GREEN}✅ Stopped $service_name${NC}"
+                    echo -e "${GREEN}✅ Stopped $service_name (PID: $pid)${NC}"
+                    ((stopped_count++))
+                else
+                    echo -e "${YELLOW}⚠️  Process $pid for $service_name was not running${NC}"
                 fi
                 rm -f "$pid_file"
             fi
         fi
     done
     
+    # If no PID files found, try to find and stop any running Spring Boot services in LGM directories
+    if [[ "$services_found" == false ]]; then
+        echo -e "${YELLOW}ℹ️  No tracked services found, checking for orphaned Spring Boot processes...${NC}"
+        
+        # Check each service folder for running processes
+        local folders_to_check=()
+        
+        # Add current scenario folders
+        if [[ -n "$CURRENT_RUN_FILE" ]]; then
+            while IFS= read -r folder || [[ -n "$folder" ]]; do
+                if [[ -n "$folder" && ! "$folder" =~ ^[[:space:]]*# ]]; then
+                    folders_to_check+=("$folder")
+                fi
+            done < "$CURRENT_RUN_FILE"
+        fi
+        
+        # Add build folders if different
+        if [[ -f "$BUILD_FOLDERS_FILE" ]]; then
+            while IFS= read -r folder || [[ -n "$folder" ]]; do
+                if [[ -n "$folder" && ! "$folder" =~ ^[[:space:]]*# ]]; then
+                    # Only add if not already in list
+                    local already_added=false
+                    for existing_folder in "${folders_to_check[@]}"; do
+                        if [[ "$existing_folder" == "$folder" ]]; then
+                            already_added=true
+                            break
+                        fi
+                    done
+                    if [[ "$already_added" == false ]]; then
+                        folders_to_check+=("$folder")
+                    fi
+                fi
+            done < "$BUILD_FOLDERS_FILE"
+        fi
+        
+        # Check each folder for running processes
+        for folder in "${folders_to_check[@]}"; do
+            local service_name=$(basename "$folder")
+            local found_pids=$(find_service_processes "$folder")
+            
+            if [[ -n "$found_pids" ]]; then
+                services_found=true
+                echo -e "${BLUE}🔍 Found orphaned processes for $service_name${NC}"
+                
+                for pid in $found_pids; do
+                    echo -e "${BLUE}🔄 Stopping orphaned $service_name process (PID: $pid)...${NC}"
+                    kill "$pid" 2>/dev/null
+                    
+                    # Wait for process to stop
+                    local count=0
+                    while ps -p "$pid" > /dev/null 2>&1 && [[ $count -lt 10 ]]; do
+                        sleep 1
+                        ((count++))
+                    done
+                    
+                    if ps -p "$pid" > /dev/null 2>&1; then
+                        echo -e "${YELLOW}⚠️  Force killing process (PID: $pid)...${NC}"
+                        kill -9 "$pid" 2>/dev/null
+                        sleep 1
+                    fi
+                    
+                    echo -e "${GREEN}✅ Stopped orphaned $service_name (PID: $pid)${NC}"
+                    ((stopped_count++))
+                done
+            fi
+        done
+    fi
+    
     echo ""
-    echo -e "${GREEN}🎉 All services stopped!${NC}"
+    if [[ "$services_found" == true ]]; then
+        echo -e "${GREEN}🎉 Stopped $stopped_count service(s)!${NC}"
+    else
+        echo -e "${CYAN}ℹ️  No running Spring Boot services found${NC}"
+    fi
 }
 
 # Function to git pull a single service
@@ -1800,6 +1923,102 @@ clean_cds_messages_file() {
     fi
 }
 
+# Function to debug service processes
+debug_service_processes() {
+    echo -e "${WHITE}🔍 Service Process Debug Information:${NC}"
+    echo ""
+    
+    # Check all running Java/Maven processes
+    echo -e "${CYAN}📋 All Java/Maven processes on system:${NC}"
+    local all_java_processes=$(ps aux | grep -E "(java|mvn)" | grep -v grep | grep -v "debug_service_processes")
+    if [[ -n "$all_java_processes" ]]; then
+        echo "$all_java_processes" | while IFS= read -r line; do
+            echo "  $line"
+        done
+    else
+        echo -e "${YELLOW}  No Java/Maven processes found${NC}"
+    fi
+    echo ""
+    
+    # Check for Spring Boot specific processes
+    echo -e "${CYAN}🌱 Spring Boot related processes:${NC}"
+    local spring_processes=$(ps aux | grep -E "(spring-boot|SpringApplication)" | grep -v grep)
+    if [[ -n "$spring_processes" ]]; then
+        echo "$spring_processes" | while IFS= read -r line; do
+            echo "  $line"
+        done
+    else
+        echo -e "${YELLOW}  No Spring Boot processes found${NC}"
+    fi
+    echo ""
+    
+    # Check each service folder in current scenario
+    if [[ -n "$CURRENT_RUN_FILE" ]]; then
+        echo -e "${CYAN}🎯 Checking services in current scenario ($CURRENT_RUN_SCENARIO):${NC}"
+        while IFS= read -r folder || [[ -n "$folder" ]]; do
+            if [[ -n "$folder" && ! "$folder" =~ ^[[:space:]]*# ]]; then
+                local service_name=$(basename "$folder")
+                echo -e "${BLUE}  🔍 $service_name:${NC}"
+                
+                if [[ -d "$folder" ]]; then
+                    # Use debug mode in find_service_processes
+                    local found_pids=$(find_service_processes "$folder" true 2>&1)
+                    if [[ -n "$found_pids" ]]; then
+                        echo "$found_pids" | while IFS= read -r line; do
+                            if [[ "$line" == *"Debug:"* ]]; then
+                                echo "    $line"
+                            elif [[ "$line" =~ ^[0-9]+$ ]]; then
+                                echo -e "    ${GREEN}✅ Found PID: $line${NC}"
+                                # Show process details
+                                local proc_info=$(ps -p "$line" -o pid,ppid,user,command 2>/dev/null | tail -1)
+                                if [[ -n "$proc_info" ]]; then
+                                    echo "    📋 Process: $proc_info"
+                                fi
+                            fi
+                        done
+                    else
+                        echo -e "    ${YELLOW}⚠️  No processes found${NC}"
+                    fi
+                    
+                    # Check PID file
+                    local pid_file="$PID_DIR/$service_name.pid"
+                    if [[ -f "$pid_file" ]]; then
+                        local stored_pid=$(cat "$pid_file")
+                        echo -e "    ${CYAN}📄 PID file exists: $stored_pid${NC}"
+                        if ps -p "$stored_pid" > /dev/null 2>&1; then
+                            echo -e "    ${GREEN}✅ Stored PID is alive${NC}"
+                        else
+                            echo -e "    ${RED}❌ Stored PID is dead${NC}"
+                        fi
+                    else
+                        echo -e "    ${YELLOW}📄 No PID file found${NC}"
+                    fi
+                else
+                    echo -e "    ${RED}❌ Directory does not exist: $folder${NC}"
+                fi
+                echo ""
+            fi
+        done < "$CURRENT_RUN_FILE"
+    else
+        echo -e "${YELLOW}⚠️  No run scenario selected${NC}"
+    fi
+    
+    # Show PID directory contents
+    echo -e "${CYAN}📁 PID directory contents:${NC}"
+    if [[ -d "$PID_DIR" ]]; then
+        local pid_files=$(ls -la "$PID_DIR"/*.pid 2>/dev/null || echo "")
+        if [[ -n "$pid_files" ]]; then
+            echo "$pid_files" | while IFS= read -r line; do
+                echo "  $line"
+            done
+        else
+            echo -e "${YELLOW}  No .pid files found${NC}"
+        fi
+    else
+        echo -e "${RED}  PID directory does not exist: $PID_DIR${NC}"
+    fi
+}
+
 # Function to show logs
 show_logs() {
     echo -e "${WHITE}📋 Available log files:${NC}"
@@ -2066,12 +2285,13 @@ main_menu() {
         echo "14) View startup statistics"
         echo "15) Refresh status (quick)"
         echo "16) Thorough status check"
+        echo "17) Debug service processes"
         echo ""
         echo -e "${CYAN}🧹 Maintenance:${NC}"
-        echo "17) Clean CDS NGL messages file"
-        echo "18) Exit"
+        echo "18) Clean CDS NGL messages file"
+        echo "19) Exit"
         echo ""
-        echo -n "Choose an option [1-18]: "
+        echo -n "Choose an option [1-19]: "
         read -r choice
         
         case $choice in
@@ -2166,12 +2386,19 @@ main_menu() {
                 ;;
             17)
                 echo ""
-                clean_cds_messages_file
+                debug_service_processes
                 echo ""
                 echo -n "Press Enter to continue..."
                 read -r
                 ;;
             18)
+                echo ""
+                clean_cds_messages_file
+                echo ""
+                echo -n "Press Enter to continue..."
+                read -r
+                ;;
+            19)
                 echo ""
                 echo -e "${GREEN}👋 Goodbye!${NC}"
                 exit 0
