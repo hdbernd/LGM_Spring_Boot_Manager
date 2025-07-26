@@ -857,6 +857,7 @@ EOF
 start_service() {
     local folder="$1"
     local service_name=$(basename "$folder")
+    local use_jar_mode=${2:-"auto"}  # auto, jar, maven
     
     if [[ ! -d "$folder" ]]; then
         echo -e "${RED}❌ Error: Directory $folder does not exist${NC}"
@@ -878,7 +879,22 @@ start_service() {
         fi
     fi
     
-    echo -e "${BLUE}🔄 Starting $service_name in new terminal...${NC}"
+    # Auto-detect JAR availability and choose startup method
+    local jar_file=""
+    if [[ "$use_jar_mode" == "auto" || "$use_jar_mode" == "jar" ]]; then
+        jar_file=$(find "$folder/target" -name "*.jar" -not -name "*sources.jar" -not -name "*javadoc.jar" 2>/dev/null | head -1)
+    fi
+    
+    if [[ -f "$jar_file" && "$use_jar_mode" != "maven" ]]; then
+        echo -e "${BLUE}🚀 Starting $service_name from JAR (FAST MODE)...${NC}"
+        start_service_jar "$folder"
+        return $?
+    else
+        if [[ "$use_jar_mode" == "jar" ]]; then
+            echo -e "${YELLOW}⚠️  JAR file not found for $service_name, falling back to Maven mode${NC}"
+        fi
+        echo -e "${BLUE}🔄 Starting $service_name with Maven...${NC}"
+    fi
     
     # Create a script to run in the new terminal
     local run_script="$PID_DIR/run_$service_name.sh"
@@ -1106,23 +1122,51 @@ stop_service() {
 
 # Function to start all services
 start_all_services() {
+    local startup_mode=${1:-"auto"}  # auto, jar, maven
+    
     if [[ -z "$CURRENT_RUN_FILE" ]]; then
         echo -e "${RED}❌ No run scenario selected${NC}"
         echo -e "${YELLOW}Please select a run scenario first${NC}"
         return 1
     fi
     
-    echo -e "${WHITE}🚀 Starting all services in scenario: ${CYAN}$CURRENT_RUN_SCENARIO${NC}"
+    local mode_display=""
+    case "$startup_mode" in
+        "auto") mode_display=" (auto-detect JAR/Maven)" ;;
+        "jar") mode_display=" (JAR mode)" ;;
+        "maven") mode_display=" (Maven mode)" ;;
+    esac
+    
+    echo -e "${WHITE}🚀 Starting all services in scenario: ${CYAN}$CURRENT_RUN_SCENARIO${NC}${YELLOW}$mode_display${NC}"
     echo ""
+    
+    local jar_count=0
+    local maven_count=0
     
     while IFS= read -r folder || [[ -n "$folder" ]]; do
         if [[ -n "$folder" && ! "$folder" =~ ^[[:space:]]*# ]]; then
-            start_service "$folder"
+            local service_name=$(basename "$folder")
+            
+            # Check if JAR exists for reporting
+            local jar_file=$(find "$folder/target" -name "*.jar" -not -name "*sources.jar" -not -name "*javadoc.jar" 2>/dev/null | head -1)
+            if [[ -f "$jar_file" && "$startup_mode" != "maven" ]]; then
+                ((jar_count++))
+            else
+                ((maven_count++))
+            fi
+            
+            start_service "$folder" "$startup_mode"
         fi
     done < "$CURRENT_RUN_FILE"
     
     echo ""
-    echo -e "${GREEN}🎉 All services in $CURRENT_RUN_SCENARIO scenario started!${NC}"
+    if [[ $jar_count -gt 0 && $maven_count -gt 0 ]]; then
+        echo -e "${GREEN}🎉 All services started! ${CYAN}($jar_count JAR mode, $maven_count Maven mode)${NC}"
+    elif [[ $jar_count -gt 0 ]]; then
+        echo -e "${GREEN}🎉 All services started in JAR mode! ${CYAN}(${jar_count} services)${NC}"
+    else
+        echo -e "${GREEN}🎉 All services started in Maven mode! ${CYAN}(${maven_count} services)${NC}"
+    fi
 }
 
 # Function to stop all services
@@ -2257,10 +2301,12 @@ main_menu() {
         echo "3) Manage default configuration"
         echo ""
         echo -e "${CYAN}🚀 Service Operations:${NC}"
-        echo "4) Start all services"
-        echo "5) Stop all services"
-        echo "6) Restart all services"
-        echo "7) Manage individual services"
+        echo "4) Start all services (auto-detect JAR/Maven)"
+        echo "5) Start all services (force JAR mode)"  
+        echo "6) Start all services (force Maven mode)"
+        echo "7) Stop all services"
+        echo "8) Restart all services"
+        echo "9) Manage individual services"
         echo ""
         
         # Show current build configuration
@@ -2274,24 +2320,24 @@ main_menu() {
         fi
         
         echo -e "${CYAN}🔨 Build Operations:${NC} ${YELLOW}(using: $build_display)${NC}"
-        echo "8) Git pull all services"
-        echo "9) Clean install all services (+ JARs)"
-        echo "10) Pull and build all services (sequential + JARs)"
-        echo "11) Pull and build all services (parallel + JARs)"
-        echo "12) Build JARs only (if already compiled)"
+        echo "10) Git pull all services"
+        echo "11) Clean install all services (+ JARs)"
+        echo "12) Pull and build all services (sequential + JARs)"
+        echo "13) Pull and build all services (parallel + JARs)"
+        echo "14) Build JARs only (if already compiled)"
         echo ""
         echo -e "${CYAN}📊 Monitoring:${NC}"
-        echo "13) View logs"
-        echo "14) View startup statistics"
-        echo "15) Refresh status (quick)"
-        echo "16) Thorough status check"
-        echo "17) Debug service processes"
+        echo "15) View logs"
+        echo "16) View startup statistics"
+        echo "17) Refresh status (quick)"
+        echo "18) Thorough status check"
+        echo "19) Debug service processes"
         echo ""
         echo -e "${CYAN}🧹 Maintenance:${NC}"
-        echo "18) Clean CDS NGL messages file"
-        echo "19) Exit"
+        echo "20) Clean CDS NGL messages file"
+        echo "21) Exit"
         echo ""
-        echo -n "Choose an option [1-19]: "
+        echo -n "Choose an option [1-21]: "
         read -r choice
         
         case $choice in
@@ -2306,99 +2352,113 @@ main_menu() {
                 ;;
             4)
                 echo ""
-                start_all_services
+                start_all_services "auto"
                 echo ""
                 echo -n "Press Enter to continue..."
                 read -r
                 ;;
             5)
                 echo ""
-                stop_all_services
+                start_all_services "jar"
                 echo ""
                 echo -n "Press Enter to continue..."
                 read -r
                 ;;
             6)
                 echo ""
-                stop_all_services
-                echo ""
-                echo -e "${BLUE}⏱️  Waiting 3 seconds before restart...${NC}"
-                sleep 3
-                echo ""
-                start_all_services
+                start_all_services "maven"
                 echo ""
                 echo -n "Press Enter to continue..."
                 read -r
                 ;;
             7)
-                individual_services_menu
+                echo ""
+                stop_all_services
+                echo ""
+                echo -n "Press Enter to continue..."
+                read -r
                 ;;
             8)
+                echo ""
+                stop_all_services
+                echo ""
+                echo -e "${BLUE}⏱️  Waiting 3 seconds before restart...${NC}"
+                sleep 3
+                echo ""
+                start_all_services "auto"
+                echo ""
+                echo -n "Press Enter to continue..."
+                read -r
+                ;;
+            9)
+                individual_services_menu
+                ;;
+            10)
                 echo ""
                 git_pull_all_services
                 echo ""
                 echo -n "Press Enter to continue..."
                 read -r
                 ;;
-            9)
+            11)
                 echo ""
                 clean_install_all_services
                 echo ""
                 echo -n "Press Enter to continue..."
                 read -r
                 ;;
-            10)
+            12)
                 echo ""
                 pull_and_build_all
                 echo ""
                 echo -n "Press Enter to continue..."
                 read -r
                 ;;
-            11)
+            13)
                 echo ""
                 pull_and_build_all_parallel
                 echo ""
                 echo -n "Press Enter to continue..."
                 read -r
                 ;;
-            12)
+            14)
                 echo ""
                 build_jars_all_services
                 echo ""
                 echo -n "Press Enter to continue..."
                 read -r
                 ;;
-            13)
+            15)
                 show_logs
                 ;;
-            14)
+            16)
                 show_startup_stats
                 ;;
-            15)
+            17)
                 # Just refresh by continuing the loop (quick mode)
                 ;;
-            16)
+            18)
                 echo ""
                 echo -e "${BLUE}🔍 Performing thorough status check...${NC}"
                 show_status true
                 echo -n "Press Enter to continue..."
                 read -r
                 ;;
-            17)
+            19)
                 echo ""
                 debug_service_processes
                 echo ""
                 echo -n "Press Enter to continue..."
                 read -r
                 ;;
-            18)
+            20)
                 echo ""
                 clean_cds_messages_file
                 echo ""
                 echo -n "Press Enter to continue..."
                 read -r
                 ;;
-            19)
+            21)
                 echo ""
                 echo -e "${GREEN}👋 Goodbye!${NC}"
                 exit 0
