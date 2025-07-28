@@ -301,7 +301,13 @@
             <p class="subtitle">Web Interface for Service Management</p>
             <div class="status-info">
                 <div class="scenario-info">
-                    Scenario: <span id="current-scenario">Loading...</span>
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <span>Scenario:</span>
+                        <select id="scenario-selector" onchange="changeScenario()" style="padding: 4px 8px; border-radius: 4px; border: 1px solid #ccc;">
+                            <option value="">Loading...</option>
+                        </select>
+                        <span id="scenario-service-count" style="color: #666; font-size: 0.9rem;"></span>
+                    </div>
                 </div>
                 <div class="last-update">
                     Last updated: <span id="last-update">Never</span>
@@ -324,23 +330,112 @@
                 <button class="btn btn-danger" onclick="stopAllServices()">
                     ⏹️ Stop All
                 </button>
+                <button class="btn btn-warning" onclick="restartAllServices('auto')">
+                    🔄 Restart All (Auto)
+                </button>
             </div>
             <div class="loading" id="global-loading">Processing operation...</div>
             <div id="global-message"></div>
         </section>
 
+        <section class="controls">
+            <h2>⚙️ Configuration Management</h2>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 16px;">
+                <div>
+                    <label style="display: block; margin-bottom: 8px; font-weight: 600;">Build Mode:</label>
+                    <select id="build-mode-selector" onchange="changeBuildMode()" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ccc;">
+                        <option value="scenario">Use Current Scenario</option>
+                        <option value="build_folders">Use build_folders.txt</option>
+                    </select>
+                </div>
+                <div style="display: flex; align-items: end;">
+                    <button class="btn btn-warning" onclick="clearDefaultConfig()" style="width: 100%;">
+                        🗑️ Clear Defaults
+                    </button>
+                </div>
+            </div>
+            <div class="loading" id="config-loading">Updating configuration...</div>
+            <div id="config-message"></div>
+        </section>
+
         <section class="build-section">
             <h2>🔨 Build Operations</h2>
+            <div style="margin-bottom: 16px;">
+                <h3 style="font-size: 1.1rem; margin-bottom: 12px; color: #2d3748;">📦 Combined Operations</h3>
+                <div class="button-group">
+                    <button class="btn btn-build" onclick="pullAndBuild(true)">
+                        ⚡ Pull & Build (Parallel)
+                    </button>
+                    <button class="btn btn-build" onclick="pullAndBuild(false)">
+                        🔄 Pull & Build (Sequential)
+                    </button>
+                </div>
+            </div>
+            
+            <div style="margin-bottom: 16px;">
+                <h3 style="font-size: 1.1rem; margin-bottom: 12px; color: #2d3748;">🔧 Individual Operations</h3>
+                <div class="button-group">
+                    <button class="btn btn-secondary" onclick="gitPullAll()">
+                        📥 Git Pull All
+                    </button>
+                    <button class="btn btn-build" onclick="cleanInstallAll()">
+                        🧹 Clean Install All
+                    </button>
+                    <button class="btn btn-primary" onclick="buildJarsOnly()">
+                        🚀 Build JARs Only
+                    </button>
+                </div>
+            </div>
+            
+            <div class="loading" id="build-loading">Processing build operation...</div>
+            <div id="build-message"></div>
+        </section>
+
+        <section class="controls">
+            <h2>📊 Monitoring & Analytics</h2>
             <div class="button-group">
-                <button class="btn btn-build" onclick="pullAndBuild(true)">
-                    ⚡ Pull & Build (Parallel)
+                <button class="btn btn-secondary" onclick="showStartupStats()">
+                    📈 Startup Statistics
                 </button>
-                <button class="btn btn-build" onclick="pullAndBuild(false)">
-                    🔄 Pull & Build (Sequential)
+                <button class="btn btn-secondary" onclick="thoroughStatusCheck()">
+                    🔍 Thorough Status Check
+                </button>
+                <button class="btn btn-warning" onclick="showDebugInfo()">
+                    🐛 Debug Processes
                 </button>
             </div>
-            <div class="loading" id="build-loading">Building services...</div>
-            <div id="build-message"></div>
+            <div class="loading" id="analytics-loading">Loading analytics...</div>
+            <div id="analytics-message"></div>
+            
+            <!-- Analytics Modal -->
+            <div id="analytics-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000;">
+                <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 12px; padding: 24px; max-width: 90%; max-height: 90%; overflow-y: auto; min-width: 600px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h3 id="modal-title" style="margin: 0; color: #2d3748;">Analytics Data</h3>
+                        <button onclick="closeAnalyticsModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">&times;</button>
+                    </div>
+                    <div id="modal-content" style="font-family: monospace; background: #f5f5f5; padding: 16px; border-radius: 8px; overflow-x: auto;">
+                        Loading...
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="controls">
+            <h2>🛠️ Maintenance & Tools</h2>
+            <div class="button-group">
+                <button class="btn btn-warning" onclick="showCdsNglInfo()">
+                    🗂️ CDS NGL Messages Info
+                </button>
+                <button class="btn btn-danger" onclick="cleanCdsNglMessages()">
+                    🧹 Clean CDS NGL Messages
+                </button>
+                <button class="btn btn-secondary" onclick="showSystemInfo()">
+                    💻 System Information
+                </button>
+            </div>
+            <div class="loading" id="maintenance-loading">Processing maintenance operation...</div>
+            <div id="maintenance-message"></div>
         </section>
 
         <section class="services-grid" id="services-grid">
@@ -353,7 +448,10 @@
     </div>
 
     <footer class="footer">
-        <p>LGM Spring Boot Service Manager v2.0 - Web Interface</p>
+        <p>LGM Spring Boot Service Manager v2.5 - Enhanced Web Interface with Full Feature Parity</p>
+        <p style="font-size: 0.8rem; margin-top: 8px;">
+            🚀 Services • ⚙️ Configuration • 🔨 Build Operations • 📊 Analytics • 🛠️ Maintenance
+        </p>
     </footer>
 
     <script>
@@ -372,6 +470,8 @@
 
         // Load initial data
         document.addEventListener('DOMContentLoaded', function() {
+            loadScenarios();
+            loadConfiguration();
             refreshStatus();
             startAutoRefresh();
         });
@@ -390,8 +490,153 @@
             }
         }
 
+        async function loadScenarios() {
+            try {
+                const response = await fetch('/api/scenarios');
+                const data = await response.json();
+                
+                const selector = document.getElementById('scenario-selector');
+                selector.innerHTML = '';
+                
+                data.scenarios.forEach(scenario => {
+                    const option = document.createElement('option');
+                    option.value = scenario.name;
+                    option.textContent = `${scenario.name} (${scenario.service_count} services)`;
+                    if (scenario.name === data.current) {
+                        option.selected = true;
+                    }
+                    selector.appendChild(option);
+                });
+                
+                updateScenarioServiceCount(data.current, data.scenarios);
+            } catch (error) {
+                console.error('Failed to load scenarios:', error);
+            }
+        }
+
         function updateScenarioInfo(data) {
-            document.getElementById('current-scenario').textContent = data.scenario || 'None';
+            // Update selector if current scenario changed
+            const selector = document.getElementById('scenario-selector');
+            if (selector.value !== data.scenario) {
+                selector.value = data.scenario || '';
+            }
+        }
+
+        function updateScenarioServiceCount(currentScenario, scenarios) {
+            const countElement = document.getElementById('scenario-service-count');
+            if (currentScenario) {
+                const scenario = scenarios.find(s => s.name === currentScenario);
+                if (scenario) {
+                    countElement.textContent = `(${scenario.service_count} services)`;
+                }
+            } else {
+                countElement.textContent = '';
+            }
+        }
+
+        async function changeScenario() {
+            const selector = document.getElementById('scenario-selector');
+            const newScenario = selector.value;
+            
+            if (!newScenario) return;
+            
+            showLoading('global-loading', true);
+            try {
+                const response = await fetch('/api/scenarios/set', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ scenario: newScenario })
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    showMessage('global-message', `✅ Scenario changed to ${newScenario}`, 'success');
+                    setTimeout(() => {
+                        refreshStatus();
+                        loadScenarios(); // Reload to update service counts
+                    }, 1000);
+                } else {
+                    showMessage('global-message', `❌ Failed to change scenario: ${result.message}`, 'error');
+                }
+            } catch (error) {
+                showMessage('global-message', `❌ Error changing scenario: ${error.message}`, 'error');
+            } finally {
+                showLoading('global-loading', false);
+            }
+        }
+
+        async function loadConfiguration() {
+            try {
+                const response = await fetch('/api/config');
+                const data = await response.json();
+                
+                if (data.success) {
+                    const buildModeSelector = document.getElementById('build-mode-selector');
+                    buildModeSelector.value = data.config.build_mode || 'scenario';
+                }
+            } catch (error) {
+                console.error('Failed to load configuration:', error);
+            }
+        }
+
+        async function changeBuildMode() {
+            const selector = document.getElementById('build-mode-selector');
+            const newBuildMode = selector.value;
+            
+            showLoading('config-loading', true);
+            try {
+                const response = await fetch('/api/config/build-mode', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ build_mode: newBuildMode })
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    const modeText = newBuildMode === 'scenario' ? 'Current Scenario' : 'build_folders.txt';
+                    showMessage('config-message', `✅ Build mode set to: ${modeText}`, 'success');
+                } else {
+                    showMessage('config-message', `❌ Failed to set build mode: ${result.message}`, 'error');
+                }
+            } catch (error) {
+                showMessage('config-message', `❌ Error setting build mode: ${error.message}`, 'error');
+            } finally {
+                showLoading('config-loading', false);
+            }
+        }
+
+        async function clearDefaultConfig() {
+            if (!confirm('Are you sure you want to clear all default configuration? This will reset scenario and build mode settings.')) {
+                return;
+            }
+            
+            showLoading('config-loading', true);
+            try {
+                const response = await fetch('/api/config/clear', {
+                    method: 'POST'
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    showMessage('config-message', '✅ Default configuration cleared', 'success');
+                    // Reload configuration and scenarios
+                    setTimeout(() => {
+                        loadConfiguration();
+                        loadScenarios();
+                        refreshStatus();
+                    }, 1000);
+                } else {
+                    showMessage('config-message', `❌ Failed to clear config: ${result.message}`, 'error');
+                }
+            } catch (error) {
+                showMessage('config-message', `❌ Error clearing config: ${error.message}`, 'error');
+            } finally {
+                showLoading('config-loading', false);
+            }
         }
 
         function updateServicesGrid(services) {
@@ -428,8 +673,23 @@
                                 ${service.status === 'stopped' ? 'disabled' : ''}>
                             ⏹️ Stop
                         </button>
+                        <button class="btn btn-warning btn-sm" onclick="restartService('${service.name}', 'auto')">
+                            🔄 Restart
+                        </button>
                         <button class="btn btn-warning btn-sm" onclick="showServiceLogs('${service.name}')">
                             📋 Logs
+                        </button>
+                    </div>
+                    <div class="service-actions" style="margin-top: 8px; border-top: 1px solid #eee; padding-top: 8px;">
+                        <small style="font-weight: 600; color: #666; display: block; margin-bottom: 4px;">Build Operations:</small>
+                        <button class="btn btn-secondary btn-sm" onclick="serviceGitPull('${service.name}')">
+                            📥 Git Pull
+                        </button>
+                        <button class="btn btn-build btn-sm" onclick="serviceCleanInstall('${service.name}')">
+                            🧹 Clean Install
+                        </button>
+                        <button class="btn btn-build btn-sm" onclick="servicePullAndBuild('${service.name}')">
+                            ⚡ Pull & Build
                         </button>
                     </div>
                 </div>
@@ -543,6 +803,67 @@
             }
         }
 
+        async function restartAllServices(mode = 'auto') {
+            showLoading('global-loading', true);
+            stopAutoRefresh();
+            
+            showMessage('global-message', `🔄 Restarting all services (${mode} mode)...`, 'success');
+            
+            try {
+                const response = await fetch('/api/services/restart-all', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ mode })
+                });
+                
+                const result = await response.json();
+                showMessage('global-message', 
+                    result.success ? `✅ All services restarted successfully (${mode} mode)` : `❌ Failed to restart services: ${result.message}`,
+                    result.success ? 'success' : 'error'
+                );
+                
+                if (result.success) {
+                    setTimeout(refreshStatus, 3000);
+                }
+            } catch (error) {
+                showMessage('global-message', `❌ Error restarting services: ${error.message}`, 'error');
+            } finally {
+                showLoading('global-loading', false);
+                startAutoRefresh();
+            }
+        }
+
+        async function restartService(serviceName, mode = 'auto') {
+            showLoading('global-loading', true);
+            try {
+                showMessage('global-message', `🔄 Restarting ${serviceName}...`, 'success');
+                
+                const response = await fetch(`/api/service/${serviceName}/restart`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ mode })
+                });
+                
+                const result = await response.json();
+                showMessage('global-message', 
+                    result.success ? `✅ ${serviceName} restarted successfully` : `❌ Failed to restart ${serviceName}: ${result.message}`,
+                    result.success ? 'success' : 'error'
+                );
+                
+                if (result.success) {
+                    setTimeout(refreshStatus, 2000);
+                }
+            } catch (error) {
+                showMessage('global-message', `❌ Error restarting ${serviceName}: ${error.message}`, 'error');
+            } finally {
+                showLoading('global-loading', false);
+            }
+        }
+
         async function pullAndBuild(parallel = true) {
             showLoading('build-loading', true);
             stopAutoRefresh();
@@ -573,6 +894,382 @@
             } finally {
                 showLoading('build-loading', false);
                 startAutoRefresh();
+            }
+        }
+
+        async function gitPullAll() {
+            showLoading('build-loading', true);
+            stopAutoRefresh();
+            
+            showMessage('build-message', '📥 Git pull all services started...', 'success');
+            
+            try {
+                const response = await fetch('/api/build/git-pull', {
+                    method: 'POST'
+                });
+                
+                const result = await response.json();
+                showMessage('build-message', 
+                    result.success ? '✅ Git pull all completed successfully' : `❌ Git pull all failed: ${result.message}`,
+                    result.success ? 'success' : 'error'
+                );
+            } catch (error) {
+                showMessage('build-message', `❌ Error during git pull all: ${error.message}`, 'error');
+            } finally {
+                showLoading('build-loading', false);
+                startAutoRefresh();
+            }
+        }
+
+        async function cleanInstallAll() {
+            showLoading('build-loading', true);
+            stopAutoRefresh();
+            
+            showMessage('build-message', '🧹 Clean install all services started...', 'success');
+            
+            try {
+                const response = await fetch('/api/build/clean-install', {
+                    method: 'POST'
+                });
+                
+                const result = await response.json();
+                showMessage('build-message', 
+                    result.success ? '✅ Clean install all completed successfully' : `❌ Clean install all failed: ${result.message}`,
+                    result.success ? 'success' : 'error'
+                );
+                
+                if (result.success) {
+                    setTimeout(refreshStatus, 2000);
+                }
+            } catch (error) {
+                showMessage('build-message', `❌ Error during clean install all: ${error.message}`, 'error');
+            } finally {
+                showLoading('build-loading', false);
+                startAutoRefresh();
+            }
+        }
+
+        async function buildJarsOnly() {
+            showLoading('build-loading', true);
+            stopAutoRefresh();
+            
+            showMessage('build-message', '🚀 Build JARs only started...', 'success');
+            
+            try {
+                const response = await fetch('/api/build/build-jars', {
+                    method: 'POST'
+                });
+                
+                const result = await response.json();
+                showMessage('build-message', 
+                    result.success ? '✅ Build JARs only completed successfully' : `❌ Build JARs only failed: ${result.message}`,
+                    result.success ? 'success' : 'error'
+                );
+                
+                if (result.success) {
+                    setTimeout(refreshStatus, 2000);
+                }
+            } catch (error) {
+                showMessage('build-message', `❌ Error during build JARs only: ${error.message}`, 'error');
+            } finally {
+                showLoading('build-loading', false);
+                startAutoRefresh();
+            }
+        }
+
+        async function serviceGitPull(serviceName) {
+            showLoading('global-loading', true);
+            try {
+                showMessage('global-message', `📥 Git pulling ${serviceName}...`, 'success');
+                
+                const response = await fetch(`/api/service/${serviceName}/git-pull`, {
+                    method: 'POST'
+                });
+                
+                const result = await response.json();
+                showMessage('global-message', 
+                    result.success ? `✅ ${serviceName} git pull completed` : `❌ Failed to git pull ${serviceName}: ${result.message}`,
+                    result.success ? 'success' : 'error'
+                );
+            } catch (error) {
+                showMessage('global-message', `❌ Error git pulling ${serviceName}: ${error.message}`, 'error');
+            } finally {
+                showLoading('global-loading', false);
+            }
+        }
+
+        async function serviceCleanInstall(serviceName) {
+            showLoading('global-loading', true);
+            try {
+                showMessage('global-message', `🧹 Clean installing ${serviceName}...`, 'success');
+                
+                const response = await fetch(`/api/service/${serviceName}/clean-install`, {
+                    method: 'POST'
+                });
+                
+                const result = await response.json();
+                showMessage('global-message', 
+                    result.success ? `✅ ${serviceName} clean install completed` : `❌ Failed to clean install ${serviceName}: ${result.message}`,
+                    result.success ? 'success' : 'error'
+                );
+                
+                if (result.success) {
+                    setTimeout(refreshStatus, 2000);
+                }
+            } catch (error) {
+                showMessage('global-message', `❌ Error clean installing ${serviceName}: ${error.message}`, 'error');
+            } finally {
+                showLoading('global-loading', false);
+            }
+        }
+
+        async function servicePullAndBuild(serviceName) {
+            showLoading('global-loading', true);
+            try {
+                showMessage('global-message', `⚡ Pull and building ${serviceName}...`, 'success');
+                
+                const response = await fetch(`/api/service/${serviceName}/pull-and-build`, {
+                    method: 'POST'
+                });
+                
+                const result = await response.json();
+                showMessage('global-message', 
+                    result.success ? `✅ ${serviceName} pull and build completed` : `❌ Failed to pull and build ${serviceName}: ${result.message}`,
+                    result.success ? 'success' : 'error'
+                );
+                
+                if (result.success) {
+                    setTimeout(refreshStatus, 2000);
+                }
+            } catch (error) {
+                showMessage('global-message', `❌ Error pull and building ${serviceName}: ${error.message}`, 'error');
+            } finally {
+                showLoading('global-loading', false);
+            }
+        }
+
+        async function showStartupStats() {
+            showLoading('analytics-loading', true);
+            try {
+                const response = await fetch('/api/analytics/startup-stats');
+                const result = await response.json();
+                
+                if (result.success) {
+                    let content = '<h4>📈 Service Startup Statistics</h4><br>';
+                    
+                    if (Object.keys(result.stats).length === 0) {
+                        content += '<p>No startup statistics available yet. Start some services to generate data.</p>';
+                    } else {
+                        content += '<table style="width: 100%; border-collapse: collapse;">';
+                        content += '<tr style="background: #f0f0f0;"><th style="padding: 8px; border: 1px solid #ddd;">Service</th><th style="padding: 8px; border: 1px solid #ddd;">Count</th><th style="padding: 8px; border: 1px solid #ddd;">Avg Time</th><th style="padding: 8px; border: 1px solid #ddd;">Min</th><th style="padding: 8px; border: 1px solid #ddd;">Max</th></tr>';
+                        
+                        for (const [serviceName, stats] of Object.entries(result.stats)) {
+                            content += `<tr>
+                                <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">${serviceName}</td>
+                                <td style="padding: 8px; border: 1px solid #ddd;">${stats.count}</td>
+                                <td style="padding: 8px; border: 1px solid #ddd;">${stats.average.toFixed(1)}s</td>
+                                <td style="padding: 8px; border: 1px solid #ddd;">${stats.min.toFixed(1)}s</td>
+                                <td style="padding: 8px; border: 1px solid #ddd;">${stats.max.toFixed(1)}s</td>
+                            </tr>`;
+                        }
+                        content += '</table>';
+                    }
+                    
+                    showAnalyticsModal('📈 Startup Statistics', content);
+                } else {
+                    showMessage('analytics-message', `❌ Failed to load startup stats: ${result.message}`, 'error');
+                }
+            } catch (error) {
+                showMessage('analytics-message', `❌ Error loading startup stats: ${error.message}`, 'error');
+            } finally {
+                showLoading('analytics-loading', false);
+            }
+        }
+
+        async function thoroughStatusCheck() {
+            showLoading('analytics-loading', true);
+            try {
+                const response = await fetch('/api/status/thorough');
+                const result = await response.json();
+                
+                if (result.success) {
+                    const content = `<h4>🔍 Thorough Status Check</h4><br><pre>${result.output}</pre>`;
+                    showAnalyticsModal('🔍 Thorough Status Check', content);
+                } else {
+                    showMessage('analytics-message', `❌ Failed to perform thorough status check: ${result.message}`, 'error');
+                }
+            } catch (error) {
+                showMessage('analytics-message', `❌ Error performing thorough status check: ${error.message}`, 'error');
+            } finally {
+                showLoading('analytics-loading', false);
+            }
+        }
+
+        async function showDebugInfo() {
+            showLoading('analytics-loading', true);
+            try {
+                const response = await fetch('/api/debug/processes');
+                const result = await response.json();
+                
+                if (result.success) {
+                    let content = '<h4>🐛 Process Debug Information</h4><br>';
+                    
+                    // Java processes
+                    content += '<h5>☕ Java Processes:</h5>';
+                    if (result.debug_info.java_processes && result.debug_info.java_processes.length > 0) {
+                        content += '<pre>';
+                        result.debug_info.java_processes.forEach(proc => {
+                            content += `PID ${proc.pid}: ${proc.info}\n`;
+                        });
+                        content += '</pre>';
+                    } else {
+                        content += '<p>No Java processes found.</p>';
+                    }
+                    
+                    // Maven processes
+                    content += '<h5>🔧 Maven Processes:</h5>';
+                    if (result.debug_info.maven_processes && result.debug_info.maven_processes.length > 0) {
+                        content += '<pre>';
+                        result.debug_info.maven_processes.forEach(proc => {
+                            content += `PID ${proc.pid}: ${proc.info}\n`;
+                        });
+                        content += '</pre>';
+                    } else {
+                        content += '<p>No Maven processes found.</p>';
+                    }
+                    
+                    // Spring Boot processes
+                    content += '<h5>🌱 Spring Boot Processes:</h5>';
+                    if (result.debug_info.spring_boot_processes && result.debug_info.spring_boot_processes.length > 0) {
+                        content += '<pre>';
+                        result.debug_info.spring_boot_processes.forEach(proc => {
+                            content += `PID ${proc.pid}: ${proc.info}\n`;
+                        });
+                        content += '</pre>';
+                    } else {
+                        content += '<p>No Spring Boot processes found.</p>';
+                    }
+                    
+                    // Port usage
+                    content += '<h5>🔌 Port Usage:</h5>';
+                    if (result.debug_info.port_usage && result.debug_info.port_usage.length > 0) {
+                        content += '<pre>';
+                        result.debug_info.port_usage.forEach(port => {
+                            content += `${port}\n`;
+                        });
+                        content += '</pre>';
+                    } else {
+                        content += '<p>No Java port usage found.</p>';
+                    }
+                    
+                    showAnalyticsModal('🐛 Debug Information', content);
+                } else {
+                    showMessage('analytics-message', `❌ Failed to load debug info: ${result.message}`, 'error');
+                }
+            } catch (error) {
+                showMessage('analytics-message', `❌ Error loading debug info: ${error.message}`, 'error');
+            } finally {
+                showLoading('analytics-loading', false);
+            }
+        }
+
+        function showAnalyticsModal(title, content) {
+            document.getElementById('modal-title').textContent = title;
+            document.getElementById('modal-content').innerHTML = content;
+            document.getElementById('analytics-modal').style.display = 'block';
+        }
+
+        function closeAnalyticsModal() {
+            document.getElementById('analytics-modal').style.display = 'none';
+        }
+
+        // Close modal when clicking outside
+        document.addEventListener('click', function(event) {
+            const modal = document.getElementById('analytics-modal');
+            if (event.target === modal) {
+                closeAnalyticsModal();
+            }
+        });
+
+        async function showCdsNglInfo() {
+            showLoading('maintenance-loading', true);
+            try {
+                const response = await fetch('/api/maintenance/cds-ngl-cleanup');
+                const result = await response.json();
+                
+                if (result.success) {
+                    const content = `<h4>🗂️ CDS NGL Messages File Information</h4><br><pre>${result.info}</pre>`;
+                    showAnalyticsModal('🗂️ CDS NGL Messages Info', content);
+                } else {
+                    showMessage('maintenance-message', `❌ Failed to get CDS NGL info: ${result.message}`, 'error');
+                }
+            } catch (error) {
+                showMessage('maintenance-message', `❌ Error getting CDS NGL info: ${error.message}`, 'error');
+            } finally {
+                showLoading('maintenance-loading', false);
+            }
+        }
+
+        async function cleanCdsNglMessages() {
+            if (!confirm('Are you sure you want to clean the CDS NGL messages file? This will create a backup and truncate the file.')) {
+                return;
+            }
+            
+            showLoading('maintenance-loading', true);
+            try {
+                const response = await fetch('/api/maintenance/cds-ngl-cleanup', {
+                    method: 'POST'
+                });
+                
+                const result = await response.json();
+                showMessage('maintenance-message', 
+                    result.success ? `✅ CDS NGL cleanup completed: ${result.message}` : `❌ CDS NGL cleanup failed: ${result.message}`,
+                    result.success ? 'success' : 'error'
+                );
+            } catch (error) {
+                showMessage('maintenance-message', `❌ Error cleaning CDS NGL messages: ${error.message}`, 'error');
+            } finally {
+                showLoading('maintenance-loading', false);
+            }
+        }
+
+        async function showSystemInfo() {
+            showLoading('maintenance-loading', true);
+            try {
+                const response = await fetch('/api/maintenance/system-info');
+                const result = await response.json();
+                
+                if (result.success) {
+                    let content = '<h4>💻 System Information</h4><br>';
+                    
+                    if (result.system_info.uptime) {
+                        content += `<h5>🕐 System Uptime:</h5><pre>${result.system_info.uptime}</pre>`;
+                    }
+                    
+                    if (result.system_info.memory_usage) {
+                        content += `<h5>🧠 Memory Usage:</h5><pre>${result.system_info.memory_usage}</pre>`;
+                    }
+                    
+                    if (result.system_info.disk_usage) {
+                        content += `<h5>💾 Disk Usage:</h5><pre>${result.system_info.disk_usage}</pre>`;
+                    }
+                    
+                    if (result.system_info.java_version) {
+                        content += `<h5>☕ Java Version:</h5><pre>${result.system_info.java_version}</pre>`;
+                    }
+                    
+                    if (result.system_info.maven_version) {
+                        content += `<h5>🔧 Maven Version:</h5><pre>${result.system_info.maven_version}</pre>`;
+                    }
+                    
+                    showAnalyticsModal('💻 System Information', content);
+                } else {
+                    showMessage('maintenance-message', `❌ Failed to get system info: ${result.message}`, 'error');
+                }
+            } catch (error) {
+                showMessage('maintenance-message', `❌ Error getting system info: ${error.message}`, 'error');
+            } finally {
+                showLoading('maintenance-loading', false);
             }
         }
 
