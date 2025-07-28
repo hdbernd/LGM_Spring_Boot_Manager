@@ -3,7 +3,7 @@
 # Spring Boot Services Stopper
 # This script stops all Spring Boot services that were started with start_services.sh
 
-set -e
+# Removed set -e to prevent script exit on kill command failures
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PID_DIR="$SCRIPT_DIR/pids"
@@ -33,7 +33,7 @@ stop_service() {
     if [[ -n "$mvn_pids" ]]; then
         echo "🔄 Stopping $service_name (Maven process)..."
         for mvn_pid in $mvn_pids; do
-            kill "$mvn_pid" 2>/dev/null
+            kill "$mvn_pid" 2>/dev/null || true
             
             # Wait for process to stop
             local count=0
@@ -44,7 +44,7 @@ stop_service() {
             
             if ps -p "$mvn_pid" > /dev/null 2>&1; then
                 echo "⚠️  Force killing Maven process..."
-                kill -9 "$mvn_pid" 2>/dev/null
+                kill -9 "$mvn_pid" 2>/dev/null || true
             fi
         done
         echo "✅ Stopped $service_name"
@@ -52,7 +52,7 @@ stop_service() {
         # Fallback: try to kill the terminal/recorded PID
         if ps -p "$pid" > /dev/null 2>&1; then
             echo "🔄 Stopping $service_name terminal (PID: $pid)..."
-            kill "$pid" 2>/dev/null
+            kill "$pid" 2>/dev/null || true
             echo "✅ Stopped $service_name terminal"
         else
             echo "⚠️  $service_name was not running"

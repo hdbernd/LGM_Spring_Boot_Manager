@@ -9,7 +9,7 @@
 #   ./service_manager.sh --set-default core # Set core as permanent default
 #   ./service_manager.sh --help             # Show help
 
-set -e
+# Removed set -e to prevent script exit on kill command failures when stopping services
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BUILD_FOLDERS_FILE="$SCRIPT_DIR/build_folders.txt"
@@ -1088,7 +1088,7 @@ stop_service() {
     if [[ -n "$mvn_pids" ]]; then
         echo -e "${BLUE}🔄 Stopping $service_name (Maven/Java process)...${NC}"
         for mvn_pid in $mvn_pids; do
-            kill "$mvn_pid" 2>/dev/null
+            kill "$mvn_pid" 2>/dev/null || true
             
             # Wait for process to stop
             local count=0
@@ -1099,7 +1099,7 @@ stop_service() {
             
             if ps -p "$mvn_pid" > /dev/null 2>&1; then
                 echo -e "${YELLOW}⚠️  Force killing process (PID: $mvn_pid)...${NC}"
-                kill -9 "$mvn_pid" 2>/dev/null
+                kill -9 "$mvn_pid" 2>/dev/null || true
                 sleep 1
             fi
         done
@@ -1108,7 +1108,7 @@ stop_service() {
         # Fallback: try to kill the terminal/recorded PID
         if ps -p "$pid" > /dev/null 2>&1; then
             echo -e "${BLUE}🔄 Stopping $service_name terminal (PID: $pid)...${NC}"
-            kill "$pid" 2>/dev/null
+            kill "$pid" 2>/dev/null || true
             echo -e "${GREEN}✅ Stopped $service_name terminal${NC}"
         else
             echo -e "${YELLOW}⚠️  $service_name was not running${NC}"
@@ -1218,7 +1218,7 @@ stop_all_services() {
                 # Fallback: stop by PID file only
                 local pid=$(cat "$pid_file")
                 if ps -p "$pid" > /dev/null 2>&1; then
-                    kill "$pid" 2>/dev/null
+                    kill "$pid" 2>/dev/null || true
                     echo -e "${GREEN}✅ Stopped $service_name (PID: $pid)${NC}"
                     ((stopped_count++))
                 else
@@ -1275,7 +1275,7 @@ stop_all_services() {
                 
                 for pid in $found_pids; do
                     echo -e "${BLUE}🔄 Stopping orphaned $service_name process (PID: $pid)...${NC}"
-                    kill "$pid" 2>/dev/null
+                    kill "$pid" 2>/dev/null || true
                     
                     # Wait for process to stop
                     local count=0
@@ -1286,7 +1286,7 @@ stop_all_services() {
                     
                     if ps -p "$pid" > /dev/null 2>&1; then
                         echo -e "${YELLOW}⚠️  Force killing process (PID: $pid)...${NC}"
-                        kill -9 "$pid" 2>/dev/null
+                        kill -9 "$pid" 2>/dev/null || true
                         sleep 1
                     fi
                     
