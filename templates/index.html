@@ -4,7 +4,26 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LGM Spring Boot Service Manager</title>
+    <link href="https://cdn.jsdelivr.net/npm/@sap-ui/fiori-fundamentals@1.25.0/dist/fiori-fundamentals.css" rel="stylesheet">
     <style>
+        :root {
+            /* SAP Fiori Color Palette */
+            --sapBrandColor: #0a6ed1;
+            --sapHighlightColor: #0854a0;
+            --sapBaseColor: #fff;
+            --sapShellColor: #354a5f;
+            --sapBackgroundColor: #f7f7f7;
+            --sapTextColor: #32363a;
+            --sapLinkColor: #0a6ed1;
+            --sapSuccessColor: #107e3e;
+            --sapWarningColor: #df6e0c;
+            --sapErrorColor: #b00;
+            --sapNeutralColor: #6a6d70;
+            --sapContentShadow: 0 0 0.25rem 0 rgba(0, 0, 0, 0.15);
+            --sapTileBackground: #fff;
+            --sapObjectHeaderBackground: #edeff0;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -12,444 +31,719 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: '72', 'Helvetica Neue', Arial, sans-serif;
+            background: var(--sapBackgroundColor);
             min-height: 100vh;
-            color: #333;
+            color: var(--sapTextColor);
+            font-size: 0.875rem;
+            line-height: 1.4;
         }
 
-        .container {
+        /* SAP Fiori Shell Bar */
+        .fd-shell-bar {
+            background: var(--sapShellColor);
+            height: 2.75rem;
+            display: flex;
+            align-items: center;
+            padding: 0 1rem;
+            box-shadow: var(--sapContentShadow);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .fd-shell-bar__title {
+            color: #fff;
+            font-size: 1rem;
+            font-weight: 600;
+            margin: 0 1rem;
+        }
+
+        .fd-shell-bar__subtitle {
+            color: #bfcbd6;
+            font-size: 0.875rem;
+            margin-left: 0.5rem;
+        }
+
+        /* SAP Fiori Page Layout */
+        .fd-page {
+            background: var(--sapBackgroundColor);
+            min-height: calc(100vh - 2.75rem);
+        }
+
+        .fd-page__content {
+            padding: 1rem;
             max-width: 1200px;
             margin: 0 auto;
-            padding: 20px;
         }
 
-        .header {
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 12px;
-            padding: 24px;
-            margin-bottom: 24px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-            backdrop-filter: blur(10px);
+        /* SAP Fiori Object Header */
+        .fd-object-header {
+            background: var(--sapObjectHeaderBackground);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            box-shadow: var(--sapContentShadow);
         }
 
-        .header h1 {
-            color: #2d3748;
-            margin-bottom: 8px;
-            font-size: 2rem;
+        .fd-object-header__title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: var(--sapTextColor);
+            margin-bottom: 0.5rem;
         }
 
-        .header .subtitle {
-            color: #4a5568;
-            font-size: 1.1rem;
+        .fd-object-header__subtitle {
+            color: var(--sapNeutralColor);
+            font-size: 0.875rem;
+            margin-bottom: 1rem;
         }
 
-        .status-info {
-            background: rgba(255, 255, 255, 0.9);
-            border-radius: 8px;
-            padding: 16px;
-            margin-top: 16px;
+        .fd-object-header__intro {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            padding: 0.75rem;
+            background: var(--sapBaseColor);
+            border-radius: 0.25rem;
+            margin-top: 1rem;
         }
 
-        .scenario-info {
-            font-weight: 600;
-            color: #2d3748;
-        }
-
-        .last-update {
-            color: #718096;
-            font-size: 0.9rem;
-        }
-
-        .controls {
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 12px;
-            padding: 24px;
-            margin-bottom: 24px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-        }
-
-        .controls h2 {
-            color: #2d3748;
-            margin-bottom: 16px;
-            font-size: 1.3rem;
-        }
-
-        .button-group {
+        .fd-object-header__attribute {
             display: flex;
-            gap: 12px;
-            flex-wrap: wrap;
-            margin-bottom: 16px;
+            align-items: center;
+            gap: 0.5rem;
         }
 
-        .btn {
-            padding: 12px 24px;
-            border: none;
-            border-radius: 8px;
+        .fd-object-header__attribute-label {
             font-weight: 600;
+            color: var(--sapTextColor);
+        }
+
+        .fd-select {
+            min-width: 12rem;
+            height: 2.25rem;
+            padding: 0 2rem 0 0.75rem;
+            border: 0.0625rem solid #89919a;
+            border-radius: 0.25rem;
+            background: var(--sapBaseColor);
+            color: var(--sapTextColor);
+            font-size: 0.875rem;
             cursor: pointer;
-            transition: all 0.2s ease;
-            font-size: 0.95rem;
+            position: relative;
+        }
+
+        .fd-select:focus {
+            border-color: var(--sapBrandColor);
+            outline: none;
+        }
+
+        .fd-object-header__status {
+            font-size: 0.75rem;
+            color: var(--sapNeutralColor);
+        }
+
+        /* SAP Fiori Panel/Section */
+        .fd-panel {
+            background: var(--sapTileBackground);
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+            box-shadow: var(--sapContentShadow);
+            overflow: hidden;
+        }
+
+        .fd-panel__header {
+            background: var(--sapObjectHeaderBackground);
+            padding: 1rem;
+            border-bottom: 0.0625rem solid #d9d9d9;
+        }
+
+        .fd-panel__title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--sapTextColor);
+            margin: 0;
+        }
+
+        .fd-panel__content {
+            padding: 1rem;
+        }
+
+        /* SAP Fiori Button Group */
+        .fd-button-group {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            margin-bottom: 1rem;
+        }
+
+        /* SAP Fiori Buttons */
+        .fd-button {
+            height: 2.25rem;
+            padding: 0 0.75rem;
+            border: 0.0625rem solid transparent;
+            border-radius: 0.25rem;
+            font-size: 0.875rem;
+            font-weight: 400;
+            cursor: pointer;
+            transition: all 0.1s ease-in-out;
             display: inline-flex;
             align-items: center;
-            gap: 8px;
+            gap: 0.5rem;
+            white-space: nowrap;
+            text-decoration: none;
+            min-width: 2.25rem;
+            justify-content: center;
         }
 
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+        .fd-button:hover:not(:disabled) {
+            box-shadow: var(--sapContentShadow);
         }
 
-        .btn:disabled {
-            opacity: 0.6;
+        .fd-button:disabled {
+            opacity: 0.5;
             cursor: not-allowed;
-            transform: none;
         }
 
-        .btn-primary {
-            background: linear-gradient(135deg, #4CAF50, #45a049);
-            color: white;
+        /* SAP Fiori Button Types */
+        .fd-button--primary {
+            background: var(--sapBrandColor);
+            color: #fff;
+            border-color: var(--sapBrandColor);
         }
 
-        .btn-secondary {
-            background: linear-gradient(135deg, #2196F3, #1976D2);
-            color: white;
+        .fd-button--primary:hover:not(:disabled) {
+            background: var(--sapHighlightColor);
+            border-color: var(--sapHighlightColor);
         }
 
-        .btn-warning {
-            background: linear-gradient(135deg, #FF9800, #F57C00);
-            color: white;
+        .fd-button--secondary {
+            background: var(--sapBaseColor);
+            color: var(--sapBrandColor);
+            border-color: var(--sapBrandColor);
         }
 
-        .btn-danger {
-            background: linear-gradient(135deg, #f44336, #d32f2f);
-            color: white;
+        .fd-button--secondary:hover:not(:disabled) {
+            background: #e6f3ff;
         }
 
-        .btn-build {
-            background: linear-gradient(135deg, #9C27B0, #7B1FA2);
-            color: white;
+        .fd-button--positive {
+            background: var(--sapSuccessColor);
+            color: #fff;
+            border-color: var(--sapSuccessColor);
         }
 
-        .services-grid {
+        .fd-button--positive:hover:not(:disabled) {
+            background: #0d6733;
+        }
+
+        .fd-button--negative {
+            background: var(--sapErrorColor);
+            color: #fff;
+            border-color: var(--sapErrorColor);
+        }
+
+        .fd-button--negative:hover:not(:disabled) {
+            background: #a3000a;
+        }
+
+        .fd-button--attention {
+            background: var(--sapWarningColor);
+            color: #fff;
+            border-color: var(--sapWarningColor);
+        }
+
+        .fd-button--attention:hover:not(:disabled) {
+            background: #c85a0a;
+        }
+
+        /* SAP Fiori Button Sizes */
+        .fd-button--compact {
+            height: 1.75rem;
+            padding: 0 0.5rem;
+            font-size: 0.75rem;
+        }
+
+        /* SAP Fiori Service Grid */
+        .fd-services-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 20px;
-            margin-bottom: 24px;
+            grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
         }
 
-        .service-card {
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 12px;
-            padding: 20px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-            backdrop-filter: blur(10px);
-            transition: transform 0.2s ease;
+        /* SAP Fiori Service Card */
+        .fd-card {
+            background: var(--sapTileBackground);
+            border-radius: 0.5rem;
+            box-shadow: var(--sapContentShadow);
+            overflow: hidden;
+            transition: all 0.1s ease-in-out;
         }
 
-        .service-card:hover {
-            transform: translateY(-4px);
+        .fd-card:hover {
+            box-shadow: 0 0 0.5rem 0 rgba(0, 0, 0, 0.2);
         }
 
-        .service-header {
+        .fd-card__header {
+            padding: 1rem;
+            border-bottom: 0.0625rem solid #e5e5e5;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 16px;
         }
 
-        .service-name {
-            font-weight: 700;
-            font-size: 1.1rem;
-            color: #2d3748;
+        .fd-card__title-area {
+            flex-grow: 1;
         }
 
-        .status-badge {
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 0.8rem;
+        .fd-card__title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--sapTextColor);
+            margin: 0 0 0.25rem 0;
+        }
+
+        .fd-card__subtitle {
+            font-size: 0.75rem;
+            color: var(--sapNeutralColor);
+            margin: 0;
+        }
+
+        /* SAP Fiori Status Badge */
+        .fd-status-badge {
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
             font-weight: 600;
             text-transform: uppercase;
-        }
-
-        .status-running {
-            background: #d4edda;
-            color: #155724;
-        }
-
-        .status-stopped {
-            background: #f8d7da;
-            color: #721c24;
-        }
-
-        .service-info {
-            margin-bottom: 16px;
-            font-size: 0.9rem;
-            color: #4a5568;
-        }
-
-        .jar-indicator {
             display: inline-flex;
             align-items: center;
-            gap: 4px;
-            padding: 4px 8px;
+            gap: 0.25rem;
+        }
+
+        .fd-status-badge--positive {
+            background: #d5f4e6;
+            color: var(--sapSuccessColor);
+        }
+
+        .fd-status-badge--negative {
+            background: #ffe6e6;
+            color: var(--sapErrorColor);
+        }
+
+        .fd-card__content {
+            padding: 1rem;
+        }
+
+        .fd-card__info {
+            margin-bottom: 1rem;
+        }
+
+        /* SAP Fiori Object Status */
+        .fd-object-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.25rem 0.5rem;
             background: #e6f3ff;
-            color: #0066cc;
-            border-radius: 12px;
+            color: var(--sapBrandColor);
+            border-radius: 0.25rem;
             font-size: 0.75rem;
             font-weight: 600;
         }
 
-        .service-actions {
+        .fd-card__actions {
             display: flex;
-            gap: 8px;
+            gap: 0.5rem;
             flex-wrap: wrap;
+            margin-bottom: 0.5rem;
         }
 
-        .btn-sm {
-            padding: 8px 16px;
-            font-size: 0.85rem;
+        .fd-card__build-actions {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            padding-top: 0.5rem;
+            border-top: 0.0625rem solid #e5e5e5;
         }
 
-        .loading {
+        .fd-card__build-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--sapNeutralColor);
+            margin-bottom: 0.5rem;
+            display: block;
+        }
+
+        /* SAP Fiori Loading Indicator */
+        .fd-loading {
             display: none;
-            color: #4a5568;
+            color: var(--sapNeutralColor);
             font-style: italic;
+            font-size: 0.875rem;
+            padding: 0.5rem;
+            background: #f5f5f5;
+            border-radius: 0.25rem;
+            border-left: 0.25rem solid var(--sapBrandColor);
         }
 
-        .message {
-            padding: 12px 16px;
-            border-radius: 8px;
-            margin: 12px 0;
-            font-weight: 500;
+        /* SAP Fiori Message Strip */
+        .fd-message-strip {
+            padding: 0.75rem 1rem;
+            border-radius: 0.25rem;
+            margin: 0.75rem 0;
+            font-size: 0.875rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
         }
 
-        .message-success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
+        .fd-message-strip--success {
+            background: #d5f4e6;
+            color: var(--sapSuccessColor);
+            border-left: 0.25rem solid var(--sapSuccessColor);
         }
 
-        .message-error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
+        .fd-message-strip--error {
+            background: #ffe6e6;
+            color: var(--sapErrorColor);
+            border-left: 0.25rem solid var(--sapErrorColor);
         }
 
-        .build-section {
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 12px;
-            padding: 24px;
-            margin-bottom: 24px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        .fd-message-strip--warning {
+            background: #fff4e6;
+            color: var(--sapWarningColor);
+            border-left: 0.25rem solid var(--sapWarningColor);
         }
 
-        .footer {
+        .fd-message-strip--information {
+            background: #e6f3ff;
+            color: var(--sapBrandColor);
+            border-left: 0.25rem solid var(--sapBrandColor);
+        }
+
+        /* SAP Fiori Modal Dialog */
+        .fd-dialog {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.4);
+            z-index: 1000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .fd-dialog__content {
+            background: var(--sapBaseColor);
+            border-radius: 0.5rem;
+            box-shadow: 0 0.5rem 2rem rgba(0, 0, 0, 0.3);
+            max-width: 90%;
+            max-height: 90%;
+            overflow-y: auto;
+            min-width: 37.5rem;
+        }
+
+        .fd-dialog__header {
+            padding: 1rem;
+            border-bottom: 0.0625rem solid #e5e5e5;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .fd-dialog__title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: var(--sapTextColor);
+            margin: 0;
+        }
+
+        .fd-dialog__close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--sapNeutralColor);
+            width: 2rem;
+            height: 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 0.25rem;
+        }
+
+        .fd-dialog__close:hover {
+            background: #f5f5f5;
+        }
+
+        .fd-dialog__body {
+            padding: 1rem;
+            font-family: 'Courier New', monospace;
+            background: #f8f9fa;
+            overflow-x: auto;
+            font-size: 0.875rem;
+            line-height: 1.4;
+        }
+
+        /* SAP Fiori Footer */
+        .fd-footer {
             text-align: center;
-            color: rgba(255, 255, 255, 0.8);
-            margin-top: 40px;
-            font-size: 0.9rem;
+            padding: 2rem 1rem;
+            color: var(--sapNeutralColor);
+            font-size: 0.875rem;
+            border-top: 0.0625rem solid #e5e5e5;
+            background: var(--sapBaseColor);
+            margin-top: 2rem;
         }
 
+        /* SAP Fiori Floating Action Button */
+        .fd-button--floating {
+            position: fixed;
+            bottom: 1rem;
+            right: 1rem;
+            width: 3.5rem;
+            height: 3.5rem;
+            border-radius: 50%;
+            background: var(--sapBrandColor);
+            color: #fff;
+            border: none;
+            font-size: 1.25rem;
+            cursor: pointer;
+            box-shadow: 0 0.25rem 1rem rgba(0, 0, 0, 0.2);
+            transition: all 0.1s ease-in-out;
+            z-index: 99;
+        }
+
+        .fd-button--floating:hover {
+            background: var(--sapHighlightColor);
+            box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.3);
+            transform: translateY(-0.125rem);
+        }
+
+        /* Responsive Design */
         @media (max-width: 768px) {
-            .container {
-                padding: 16px;
+            .fd-page__content {
+                padding: 0.5rem;
             }
             
-            .button-group {
+            .fd-button-group {
                 flex-direction: column;
             }
             
-            .btn {
+            .fd-button {
                 width: 100%;
                 justify-content: center;
             }
             
-            .services-grid {
+            .fd-services-grid {
                 grid-template-columns: 1fr;
             }
-        }
 
-        .refresh-btn {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            width: 56px;
-            height: 56px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            color: white;
-            border: none;
-            font-size: 1.2rem;
-            cursor: pointer;
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
-            transition: all 0.3s ease;
-        }
-
-        .refresh-btn:hover {
-            transform: scale(1.1);
+            .fd-dialog__content {
+                min-width: auto;
+                margin: 1rem;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <header class="header">
-            <h1>🚀 LGM Spring Boot Service Manager</h1>
-            <p class="subtitle">Web Interface for Service Management</p>
-            <div class="status-info">
-                <div class="scenario-info">
-                    <div style="display: flex; align-items: center; gap: 12px;">
-                        <span>Scenario:</span>
-                        <select id="scenario-selector" onchange="changeScenario()" style="padding: 4px 8px; border-radius: 4px; border: 1px solid #ccc;">
-                            <option value="">Loading...</option>
+    <!-- SAP Fiori Shell Bar -->
+    <div class="fd-shell-bar">
+        <h1 class="fd-shell-bar__title">🚀 Spring Boot Service Manager</h1>
+        <span class="fd-shell-bar__subtitle">LGM Enterprise Platform</span>
+    </div>
+
+    <!-- SAP Fiori Page Layout -->
+    <div class="fd-page">
+        <div class="fd-page__content">
+            <!-- Object Header -->
+            <div class="fd-object-header">
+                <h1 class="fd-object-header__title">Service Management Dashboard</h1>
+                <p class="fd-object-header__subtitle">Comprehensive Spring Boot microservices management interface</p>
+                
+                <div class="fd-object-header__intro">
+                    <div class="fd-object-header__attribute">
+                        <span class="fd-object-header__attribute-label">Current Scenario:</span>
+                        <select id="scenario-selector" class="fd-select" onchange="changeScenario()">
+                            <option value="">Loading scenarios...</option>
                         </select>
-                        <span id="scenario-service-count" style="color: #666; font-size: 0.9rem;"></span>
+                        <span id="scenario-service-count" class="fd-object-header__status"></span>
+                    </div>
+                    <div class="fd-object-header__attribute">
+                        <span class="fd-object-header__attribute-label">Last Updated:</span>
+                        <span id="last-update" class="fd-object-header__status">Never</span>
                     </div>
                 </div>
-                <div class="last-update">
-                    Last updated: <span id="last-update">Never</span>
-                </div>
             </div>
-        </header>
 
-        <section class="controls">
-            <h2>🎯 Service Operations</h2>
-            <div class="button-group">
-                <button class="btn btn-primary" onclick="startAllServices('auto')">
-                    ▶️ Start All (Auto)
-                </button>
-                <button class="btn btn-secondary" onclick="startAllServices('jar')">
-                    🚀 Start All (JAR)
-                </button>
-                <button class="btn btn-warning" onclick="startAllServices('maven')">
-                    🔧 Start All (Maven)
-                </button>
-                <button class="btn btn-danger" onclick="stopAllServices()">
-                    ⏹️ Stop All
-                </button>
-                <button class="btn btn-warning" onclick="restartAllServices('auto')">
-                    🔄 Restart All (Auto)
-                </button>
+            <!-- Service Operations Panel -->
+            <div class="fd-panel">
+                <div class="fd-panel__header">
+                    <h2 class="fd-panel__title">🎯 Service Operations</h2>
+                </div>
+                <div class="fd-panel__content">
+                    <div class="fd-button-group">
+                        <button class="fd-button fd-button--primary" onclick="startAllServices('auto')">
+                            ▶️ Start All (Auto)
+                        </button>
+                        <button class="fd-button fd-button--secondary" onclick="startAllServices('jar')">
+                            🚀 Start All (JAR)
+                        </button>
+                        <button class="fd-button fd-button--secondary" onclick="startAllServices('maven')">
+                            🔧 Start All (Maven)
+                        </button>
+                        <button class="fd-button fd-button--negative" onclick="stopAllServices()">
+                            ⏹️ Stop All
+                        </button>
+                        <button class="fd-button fd-button--attention" onclick="restartAllServices('auto')">
+                            🔄 Restart All (Auto)
+                        </button>
+                    </div>
+                    <div class="fd-loading" id="global-loading">Processing operation...</div>
+                    <div id="global-message"></div>
+                </div>
             </div>
-            <div class="loading" id="global-loading">Processing operation...</div>
-            <div id="global-message"></div>
-        </section>
 
-        <section class="controls">
-            <h2>⚙️ Configuration Management</h2>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 16px;">
-                <div>
-                    <label style="display: block; margin-bottom: 8px; font-weight: 600;">Build Mode:</label>
-                    <select id="build-mode-selector" onchange="changeBuildMode()" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ccc;">
-                        <option value="scenario">Use Current Scenario</option>
-                        <option value="build_folders">Use build_folders.txt</option>
-                    </select>
+            <!-- Configuration Management Panel -->
+            <div class="fd-panel">
+                <div class="fd-panel__header">
+                    <h2 class="fd-panel__title">⚙️ Configuration Management</h2>
                 </div>
-                <div style="display: flex; align-items: end;">
-                    <button class="btn btn-warning" onclick="clearDefaultConfig()" style="width: 100%;">
-                        🗑️ Clear Defaults
-                    </button>
+                <div class="fd-panel__content">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; align-items: end;">
+                        <div>
+                            <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--sapTextColor); font-size: 0.875rem;">Build Mode:</label>
+                            <select id="build-mode-selector" class="fd-select" onchange="changeBuildMode()" style="width: 100%;">
+                                <option value="scenario">Use Current Scenario</option>
+                                <option value="build_folders">Use build_folders.txt</option>
+                            </select>
+                        </div>
+                        <div>
+                            <button class="fd-button fd-button--attention" onclick="clearDefaultConfig()" style="width: 100%;">
+                                🗑️ Clear Defaults
+                            </button>
+                        </div>
+                    </div>
+                    <div class="fd-loading" id="config-loading">Updating configuration...</div>
+                    <div id="config-message"></div>
                 </div>
             </div>
-            <div class="loading" id="config-loading">Updating configuration...</div>
-            <div id="config-message"></div>
-        </section>
 
-        <section class="build-section">
-            <h2>🔨 Build Operations</h2>
-            <div style="margin-bottom: 16px;">
-                <h3 style="font-size: 1.1rem; margin-bottom: 12px; color: #2d3748;">📦 Combined Operations</h3>
-                <div class="button-group">
-                    <button class="btn btn-build" onclick="pullAndBuild(true)">
-                        ⚡ Pull & Build (Parallel)
-                    </button>
-                    <button class="btn btn-build" onclick="pullAndBuild(false)">
-                        🔄 Pull & Build (Sequential)
-                    </button>
+            <!-- Build Operations Panel -->
+            <div class="fd-panel">
+                <div class="fd-panel__header">
+                    <h2 class="fd-panel__title">🔨 Build Operations</h2>
+                </div>
+                <div class="fd-panel__content">
+                    <div style="margin-bottom: 1rem;">
+                        <h3 style="font-size: 1rem; margin-bottom: 0.75rem; color: var(--sapTextColor); font-weight: 600;">📦 Combined Operations</h3>
+                        <div class="fd-button-group">
+                            <button class="fd-button fd-button--primary" onclick="pullAndBuild(true)">
+                                ⚡ Pull & Build (Parallel)
+                            </button>
+                            <button class="fd-button fd-button--secondary" onclick="pullAndBuild(false)">
+                                🔄 Pull & Build (Sequential)
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-bottom: 1rem;">
+                        <h3 style="font-size: 1rem; margin-bottom: 0.75rem; color: var(--sapTextColor); font-weight: 600;">🔧 Individual Operations</h3>
+                        <div class="fd-button-group">
+                            <button class="fd-button fd-button--secondary" onclick="gitPullAll()">
+                                📥 Git Pull All
+                            </button>
+                            <button class="fd-button fd-button--secondary" onclick="cleanInstallAll()">
+                                🧹 Clean Install All
+                            </button>
+                            <button class="fd-button fd-button--primary" onclick="buildJarsOnly()">
+                                🚀 Build JARs Only
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="fd-loading" id="build-loading">Processing build operation...</div>
+                    <div id="build-message"></div>
                 </div>
             </div>
-            
-            <div style="margin-bottom: 16px;">
-                <h3 style="font-size: 1.1rem; margin-bottom: 12px; color: #2d3748;">🔧 Individual Operations</h3>
-                <div class="button-group">
-                    <button class="btn btn-secondary" onclick="gitPullAll()">
-                        📥 Git Pull All
-                    </button>
-                    <button class="btn btn-build" onclick="cleanInstallAll()">
-                        🧹 Clean Install All
-                    </button>
-                    <button class="btn btn-primary" onclick="buildJarsOnly()">
-                        🚀 Build JARs Only
-                    </button>
-                </div>
-            </div>
-            
-            <div class="loading" id="build-loading">Processing build operation...</div>
-            <div id="build-message"></div>
-        </section>
 
-        <section class="controls">
-            <h2>📊 Monitoring & Analytics</h2>
-            <div class="button-group">
-                <button class="btn btn-secondary" onclick="showStartupStats()">
-                    📈 Startup Statistics
-                </button>
-                <button class="btn btn-secondary" onclick="thoroughStatusCheck()">
-                    🔍 Thorough Status Check
-                </button>
-                <button class="btn btn-warning" onclick="showDebugInfo()">
-                    🐛 Debug Processes
-                </button>
+            <!-- Monitoring & Analytics Panel -->
+            <div class="fd-panel">
+                <div class="fd-panel__header">
+                    <h2 class="fd-panel__title">📊 Monitoring & Analytics</h2>
+                </div>
+                <div class="fd-panel__content">
+                    <div class="fd-button-group">
+                        <button class="fd-button fd-button--secondary" onclick="showStartupStats()">
+                            📈 Startup Statistics
+                        </button>
+                        <button class="fd-button fd-button--secondary" onclick="thoroughStatusCheck()">
+                            🔍 Thorough Status Check
+                        </button>
+                        <button class="fd-button fd-button--attention" onclick="showDebugInfo()">
+                            🐛 Debug Processes
+                        </button>
+                    </div>
+                    <div class="fd-loading" id="analytics-loading">Loading analytics...</div>
+                    <div id="analytics-message"></div>
+                </div>
             </div>
-            <div class="loading" id="analytics-loading">Loading analytics...</div>
-            <div id="analytics-message"></div>
             
             <!-- Analytics Modal -->
-            <div id="analytics-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000;">
-                <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 12px; padding: 24px; max-width: 90%; max-height: 90%; overflow-y: auto; min-width: 600px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                        <h3 id="modal-title" style="margin: 0; color: #2d3748;">Analytics Data</h3>
-                        <button onclick="closeAnalyticsModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">&times;</button>
+            <div id="analytics-modal" class="fd-dialog">
+                <div class="fd-dialog__content">
+                    <div class="fd-dialog__header">
+                        <h3 id="modal-title" class="fd-dialog__title">Analytics Data</h3>
+                        <button onclick="closeAnalyticsModal()" class="fd-dialog__close">&times;</button>
                     </div>
-                    <div id="modal-content" style="font-family: monospace; background: #f5f5f5; padding: 16px; border-radius: 8px; overflow-x: auto;">
+                    <div id="modal-content" class="fd-dialog__body">
                         Loading...
                     </div>
                 </div>
             </div>
-        </section>
 
-        <section class="controls">
-            <h2>🛠️ Maintenance & Tools</h2>
-            <div class="button-group">
-                <button class="btn btn-warning" onclick="showCdsNglInfo()">
-                    🗂️ CDS NGL Messages Info
-                </button>
-                <button class="btn btn-danger" onclick="cleanCdsNglMessages()">
-                    🧹 Clean CDS NGL Messages
-                </button>
-                <button class="btn btn-secondary" onclick="showSystemInfo()">
-                    💻 System Information
-                </button>
+            <!-- Maintenance & Tools Panel -->
+            <div class="fd-panel">
+                <div class="fd-panel__header">
+                    <h2 class="fd-panel__title">🛠️ Maintenance & Tools</h2>
+                </div>
+                <div class="fd-panel__content">
+                    <div class="fd-button-group">
+                        <button class="fd-button fd-button--secondary" onclick="showCdsNglInfo()">
+                            🗂️ CDS NGL Messages Info
+                        </button>
+                        <button class="fd-button fd-button--negative" onclick="cleanCdsNglMessages()">
+                            🧹 Clean CDS NGL Messages
+                        </button>
+                        <button class="fd-button fd-button--secondary" onclick="showSystemInfo()">
+                            💻 System Information
+                        </button>
+                    </div>
+                    <div class="fd-loading" id="maintenance-loading">Processing maintenance operation...</div>
+                    <div id="maintenance-message"></div>
+                </div>
             </div>
-            <div class="loading" id="maintenance-loading">Processing maintenance operation...</div>
-            <div id="maintenance-message"></div>
-        </section>
 
-        <section class="services-grid" id="services-grid">
-            <!-- Services will be loaded here -->
-        </section>
+            <!-- Services Grid -->
+            <div class="fd-services-grid" id="services-grid">
+                <!-- Services will be loaded here -->
+            </div>
 
-        <button class="refresh-btn" onclick="refreshStatus()" title="Refresh Status">
-            🔄
-        </button>
+            <!-- Floating Action Button -->
+            <button class="fd-button fd-button--floating" onclick="refreshStatus()" title="Refresh Status">
+                🔄
+            </button>
+        </div>
     </div>
 
-    <footer class="footer">
-        <p>LGM Spring Boot Service Manager v2.5 - Enhanced Web Interface with Full Feature Parity</p>
-        <p style="font-size: 0.8rem; margin-top: 8px;">
+    <!-- SAP Fiori Footer -->
+    <footer class="fd-footer">
+        <p>LGM Spring Boot Service Manager v2.5 - Enhanced SAP Fiori Interface with Full Feature Parity</p>
+        <p style="font-size: 0.75rem; margin-top: 0.5rem; color: var(--sapNeutralColor);">
             🚀 Services • ⚙️ Configuration • 🔨 Build Operations • 📊 Analytics • 🛠️ Maintenance
         </p>
     </footer>
@@ -492,25 +786,45 @@
 
         async function loadScenarios() {
             try {
+                console.log('Loading scenarios...');
                 const response = await fetch('/api/scenarios');
                 const data = await response.json();
+                console.log('Scenarios loaded:', data);
                 
                 const selector = document.getElementById('scenario-selector');
                 selector.innerHTML = '';
                 
+                // Add default option
+                const defaultOption = document.createElement('option');
+                defaultOption.value = '';
+                defaultOption.textContent = 'Select a scenario...';
+                defaultOption.disabled = true;
+                selector.appendChild(defaultOption);
+                
+                // Add scenario options
                 data.scenarios.forEach(scenario => {
                     const option = document.createElement('option');
                     option.value = scenario.name;
                     option.textContent = `${scenario.name} (${scenario.service_count} services)`;
                     if (scenario.name === data.current) {
                         option.selected = true;
+                        console.log('Current scenario selected:', scenario.name);
                     }
                     selector.appendChild(option);
                 });
                 
+                // If no current scenario is set, select the first available one
+                if (!data.current && data.scenarios.length > 0) {
+                    console.log('No current scenario, setting first available:', data.scenarios[0].name);
+                    selector.value = data.scenarios[0].name;
+                    // Don't trigger changeScenario here to avoid loops
+                    showMessage('global-message', `ℹ️ Default scenario set to ${data.scenarios[0].name}`, 'information');
+                }
+                
                 updateScenarioServiceCount(data.current, data.scenarios);
             } catch (error) {
                 console.error('Failed to load scenarios:', error);
+                showMessage('global-message', `❌ Failed to load scenarios: ${error.message}`, 'error');
             }
         }
 
@@ -538,10 +852,18 @@
             const selector = document.getElementById('scenario-selector');
             const newScenario = selector.value;
             
-            if (!newScenario) return;
+            console.log('Scenario change requested:', newScenario);
+            
+            if (!newScenario || newScenario === '') {
+                console.log('No scenario selected, returning');
+                return;
+            }
             
             showLoading('global-loading', true);
+            showMessage('global-message', `🔄 Changing scenario to ${newScenario}...`, 'information');
+            
             try {
+                console.log('Sending scenario change request...');
                 const response = await fetch('/api/scenarios/set', {
                     method: 'POST',
                     headers: {
@@ -550,17 +872,25 @@
                     body: JSON.stringify({ scenario: newScenario })
                 });
                 
+                console.log('Response status:', response.status);
                 const result = await response.json();
+                console.log('Response result:', result);
+                
                 if (result.success) {
-                    showMessage('global-message', `✅ Scenario changed to ${newScenario}`, 'success');
-                    setTimeout(() => {
-                        refreshStatus();
-                        loadScenarios(); // Reload to update service counts
-                    }, 1000);
+                    showMessage('global-message', `✅ Scenario successfully changed to ${newScenario}`, 'success');
+                    
+                    // Update default config as well
+                    setTimeout(async () => {
+                        await refreshStatus();
+                        await loadScenarios();
+                        await loadConfiguration();
+                    }, 500);
                 } else {
                     showMessage('global-message', `❌ Failed to change scenario: ${result.message}`, 'error');
+                    console.error('Scenario change failed:', result.message);
                 }
             } catch (error) {
+                console.error('Error changing scenario:', error);
                 showMessage('global-message', `❌ Error changing scenario: ${error.message}`, 'error');
             } finally {
                 showLoading('global-loading', false);
@@ -643,54 +973,67 @@
             const grid = document.getElementById('services-grid');
             
             if (!services || services.length === 0) {
-                grid.innerHTML = '<div class="service-card"><p>No services configured. Please select a run scenario.</p></div>';
+                grid.innerHTML = `
+                    <div class="fd-card">
+                        <div class="fd-card__content">
+                            <p style="text-align: center; color: var(--sapNeutralColor); padding: 2rem;">
+                                No services configured. Please select a run scenario.
+                            </p>
+                        </div>
+                    </div>
+                `;
                 return;
             }
             
             grid.innerHTML = services.map(service => `
-                <div class="service-card">
-                    <div class="service-header">
-                        <div class="service-name">${service.name}</div>
-                        <div class="status-badge status-${service.status}">
-                            ${service.status === 'running' ? '🟢' : '🔴'} ${service.status}
+                <div class="fd-card">
+                    <div class="fd-card__header">
+                        <div class="fd-card__title-area">
+                            <h3 class="fd-card__title">${service.name}</h3>
+                            <p class="fd-card__subtitle">Spring Boot Service</p>
+                        </div>
+                        <div class="fd-status-badge fd-status-badge--${service.status === 'running' ? 'positive' : 'negative'}">
+                            ${service.status === 'running' ? '🟢' : '🔴'} ${service.status.toUpperCase()}
                         </div>
                     </div>
-                    <div class="service-info">
-                        ${service.jar_available ? '<span class="jar-indicator">🚀 JAR Available</span>' : ''}
-                    </div>
-                    <div class="service-actions">
-                        <button class="btn btn-primary btn-sm" onclick="startService('${service.name}', 'auto')" 
-                                ${service.status === 'running' ? 'disabled' : ''}>
-                            ▶️ Start
-                        </button>
-                        ${service.jar_available ? `
-                        <button class="btn btn-secondary btn-sm" onclick="startService('${service.name}', 'jar')"
-                                ${service.status === 'running' ? 'disabled' : ''}>
-                            🚀 JAR
-                        </button>
-                        ` : ''}
-                        <button class="btn btn-danger btn-sm" onclick="stopService('${service.name}')"
-                                ${service.status === 'stopped' ? 'disabled' : ''}>
-                            ⏹️ Stop
-                        </button>
-                        <button class="btn btn-warning btn-sm" onclick="restartService('${service.name}', 'auto')">
-                            🔄 Restart
-                        </button>
-                        <button class="btn btn-warning btn-sm" onclick="showServiceLogs('${service.name}')">
-                            📋 Logs
-                        </button>
-                    </div>
-                    <div class="service-actions" style="margin-top: 8px; border-top: 1px solid #eee; padding-top: 8px;">
-                        <small style="font-weight: 600; color: #666; display: block; margin-bottom: 4px;">Build Operations:</small>
-                        <button class="btn btn-secondary btn-sm" onclick="serviceGitPull('${service.name}')">
-                            📥 Git Pull
-                        </button>
-                        <button class="btn btn-build btn-sm" onclick="serviceCleanInstall('${service.name}')">
-                            🧹 Clean Install
-                        </button>
-                        <button class="btn btn-build btn-sm" onclick="servicePullAndBuild('${service.name}')">
-                            ⚡ Pull & Build
-                        </button>
+                    <div class="fd-card__content">
+                        <div class="fd-card__info">
+                            ${service.jar_available ? '<span class="fd-object-status">🚀 JAR Available</span>' : ''}
+                        </div>
+                        <div class="fd-card__actions">
+                            <button class="fd-button fd-button--primary fd-button--compact" onclick="startService('${service.name}', 'auto')" 
+                                    ${service.status === 'running' ? 'disabled' : ''}>
+                                ▶️ Start
+                            </button>
+                            ${service.jar_available ? `
+                            <button class="fd-button fd-button--secondary fd-button--compact" onclick="startService('${service.name}', 'jar')"
+                                    ${service.status === 'running' ? 'disabled' : ''}>
+                                🚀 JAR
+                            </button>
+                            ` : ''}
+                            <button class="fd-button fd-button--negative fd-button--compact" onclick="stopService('${service.name}')"
+                                    ${service.status === 'stopped' ? 'disabled' : ''}>
+                                ⏹️ Stop
+                            </button>
+                            <button class="fd-button fd-button--attention fd-button--compact" onclick="restartService('${service.name}', 'auto')">
+                                🔄 Restart
+                            </button>
+                            <button class="fd-button fd-button--secondary fd-button--compact" onclick="showServiceLogs('${service.name}')">
+                                📋 Logs
+                            </button>
+                        </div>
+                        <div class="fd-card__build-actions">
+                            <span class="fd-card__build-label">Build Operations:</span>
+                            <button class="fd-button fd-button--secondary fd-button--compact" onclick="serviceGitPull('${service.name}')">
+                                📥 Git Pull
+                            </button>
+                            <button class="fd-button fd-button--secondary fd-button--compact" onclick="serviceCleanInstall('${service.name}')">
+                                🧹 Clean Install
+                            </button>
+                            <button class="fd-button fd-button--primary fd-button--compact" onclick="servicePullAndBuild('${service.name}')">
+                                ⚡ Pull & Build
+                            </button>
+                        </div>
                     </div>
                 </div>
             `).join('');
@@ -1176,7 +1519,7 @@
         function showAnalyticsModal(title, content) {
             document.getElementById('modal-title').textContent = title;
             document.getElementById('modal-content').innerHTML = content;
-            document.getElementById('analytics-modal').style.display = 'block';
+            document.getElementById('analytics-modal').style.display = 'flex';
         }
 
         function closeAnalyticsModal() {
@@ -1330,7 +1673,9 @@
         function showMessage(containerId, message, type) {
             const container = document.getElementById(containerId);
             if (container) {
-                container.innerHTML = `<div class="message message-${type}">${message}</div>`;
+                // Map message types to SAP Fiori message strip types
+                const fioriType = type === 'success' ? 'success' : type === 'error' ? 'error' : 'information';
+                container.innerHTML = `<div class="fd-message-strip fd-message-strip--${fioriType}">${message}</div>`;
                 
                 // Auto-hide success messages after 5 seconds
                 if (type === 'success') {

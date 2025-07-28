@@ -861,9 +861,22 @@ if __name__ == '__main__':
         print(f"Error: Service manager script not found at {SERVICE_MANAGER_SCRIPT}")
         sys.exit(1)
     
-    print("🌐 LGM Spring Boot Service Manager - Web UI")
+    print("🌐 LGM Spring Boot Service Manager - SAP Fiori Web UI")
     print(f"📂 Working directory: {SCRIPT_DIR}")
     print("🚀 Starting server on http://localhost:8098")
     print("💡 Press Ctrl+C to stop")
+    
+    # Open browser tab automatically
+    import threading
+    import webbrowser
+    
+    def open_browser():
+        import time
+        time.sleep(1)  # Wait for server to start
+        webbrowser.open('http://localhost:8098')
+    
+    browser_thread = threading.Thread(target=open_browser)
+    browser_thread.daemon = True
+    browser_thread.start()
     
     app.run(host='0.0.0.0', port=8098, debug=False, threaded=True)
