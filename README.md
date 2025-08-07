@@ -4,7 +4,7 @@ A comprehensive bash-based tool for managing multiple Spring Boot microservices 
 
 **🔗 Repository**: https://github.com/hdbernd/LGM_Spring_Boot_Manager
 
-> **Latest Update**: Added command-line parameter support and enhanced interactive default configuration management. Start with specific profiles directly from command line, set permanent defaults, and manage configurations seamlessly in both interactive and command-line modes.
+> **Latest Update**: Added comprehensive web UI with SAP Fiori design system alongside enhanced command-line features. Full feature parity between terminal and web interfaces including scenario management, service operations, monitoring, and real-time status updates.
 
 ## 🚀 Features
 
@@ -52,6 +52,16 @@ A comprehensive bash-based tool for managing multiple Spring Boot microservices 
 - **Default configuration display** with status visibility
 - **Enhanced default management** with direct profile selection
 
+### 🌐 Web User Interface
+- **SAP Fiori design system** with modern, responsive UI components
+- **Complete feature parity** with terminal interface including all operations
+- **Real-time status updates** with automatic refresh and live monitoring
+- **Interactive scenario management** with visual service selection
+- **Integrated log viewing** with syntax highlighting and auto-refresh
+- **Mobile-friendly responsive design** for development on any device
+- **Direct service actions** - start/stop/restart individual services via web
+- **Build operation monitoring** with progress indicators and real-time feedback
+
 ### 📋 Command-Line Interface
 - **Direct profile startup** - Start with specific profile: `./service_manager.sh core`
 - **Permanent default management** - Set/clear default profiles from command line
@@ -59,6 +69,7 @@ A comprehensive bash-based tool for managing multiple Spring Boot microservices 
 - **Configuration display** - Show current defaults: `./service_manager.sh --show-default`
 - **Help system** - Built-in usage information: `./service_manager.sh --help`
 - **Priority system** - Command-line profile → Permanent default → Interactive selection
+- **Web UI launcher** - Start web interface: `./start_web_ui.sh` (runs on port 8098)
 
 ## 📁 Project Structure
 
@@ -72,6 +83,11 @@ LGM_Spring_Boot_Manager/
 ├── start_services.sh                  # Batch start script
 ├── stop_services.sh                   # Batch stop script
 ├── pull_and_build.sh                  # Original git pull & build script
+├── web_ui.py                          # Flask web interface server
+├── start_web_ui.sh                    # Web UI startup script
+├── templates/
+│   └── index.html                     # SAP Fiori-styled web interface template
+├── scenarios/                         # Auto-generated scenario test files
 ├── pids/                              # Auto-generated PID and log directory
 │   ├── *.pid                         # Process ID files
 │   ├── *.log                         # Service log files
@@ -92,14 +108,39 @@ LGM_Spring_Boot_Manager/
 - **Git** installed and configured
 - **Maven** (`mvn`) available in PATH
 - **Java** environment configured for Spring Boot
+- **Python 3.6+** with Flask (for web UI): `pip3 install flask`
 
-#### Windows Users
-For Windows users, you have several options:
-- **Git Bash** (Recommended): Install [Git for Windows](https://gitforwindows.org/) which includes Git Bash
-- **WSL2**: Use Windows Subsystem for Linux with Ubuntu
-- **Docker**: Run services in Linux containers
+#### Platform Support
 
-**Note**: Windows native Command Prompt and PowerShell are not currently supported due to terminal management requirements.
+##### **macOS** ✅ **Full Support**
+- Complete Terminal.app integration with separate windows for each service
+- All features work seamlessly including web UI and terminal interface
+- Automatic process detection and cleanup
+
+##### **Linux** ✅ **Full Support**
+- Complete functionality with gnome-terminal or xterm support
+- All features available including web UI
+- Package manager installation: `sudo apt-get install python3-flask` (Ubuntu/Debian)
+
+##### **Windows** ⚠️ **Multiple Options**
+
+**Option 1: Windows Subsystem for Linux (WSL2) - Recommended**
+- Full Linux compatibility with complete feature set
+- Install Ubuntu from Microsoft Store
+- Run `sudo apt-get install python3-flask` for web UI support
+- All terminal and web features work natively
+
+**Option 2: Git Bash**
+- All command-line features work (profiles, defaults, build operations)
+- Web UI works for service management
+- Service terminal limitation: Services run in the same Git Bash window
+- Install: Download from [gitforwindows.org](https://gitforwindows.org/)
+- Python installation: Download Python from [python.org](https://python.org) and add to PATH
+
+**Option 3: Native Windows with PowerShell Core**
+- Limited support (command-line features and web UI only)
+- Manual service startup recommended for terminal services
+- Web UI provides full service management capabilities
 
 ### Configuration
 
@@ -134,12 +175,50 @@ For Windows users, you have several options:
    # Edit each run_*.txt file with your local service paths
    ```
 
-5. **Start the service manager**:
+5. **Install Python dependencies (for web UI)**:
    ```bash
+   # macOS/Linux
+   pip3 install flask
+   
+   # Windows (after installing Python)
+   pip install flask
+   
+   # Ubuntu/Debian via package manager
+   sudo apt-get install python3-flask
+   ```
+
+6. **Start the service manager**:
+   ```bash
+   # Terminal interface
    ./service_manager.sh
+   
+   # Web interface (runs on http://localhost:8098)
+   ./start_web_ui.sh
    ```
 
 ## 🎮 Usage
+
+### Web Interface
+
+The web UI provides a modern, responsive interface with complete feature parity to the terminal version:
+
+```bash
+# Start the web interface
+./start_web_ui.sh
+
+# Access in browser
+open http://localhost:8098
+```
+
+**Web UI Features:**
+- **SAP Fiori design system** - Modern, professional interface styling
+- **Real-time monitoring** - Automatic status updates and live service monitoring
+- **Complete scenario management** - Visual selection and management of service scenarios
+- **Interactive service operations** - Start, stop, restart services with visual feedback
+- **Integrated log viewing** - View service logs with syntax highlighting and auto-refresh
+- **Build operations** - Git pull, Maven build with progress indicators
+- **Mobile responsive** - Works on desktop, tablet, and mobile devices
+- **Auto-refresh dashboard** - Live updates without manual page refresh
 
 ### Command-Line Options
 
